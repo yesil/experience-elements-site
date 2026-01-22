@@ -72614,7 +72614,6 @@ var acomAsideStyleSheet = i`
 
 // src/custom-elements/acom/acom-aside.js
 var DEFAULT_BACKGROUND2 = "transparent";
-var JSON_LD_KEY = "acom-aside";
 var OBSERVED_SLOTS = [
   "eyebrow",
   "heading",
@@ -72674,9 +72673,9 @@ var AcomAside = class extends i4 {
     super.disconnectedCallback();
     disconnectSlotObservers(this.#slotObservers);
     this.#slotObservers = [];
-    setJsonLd(this, null, JSON_LD_KEY);
   }
   firstUpdated() {
+    this.#cleanupScripts();
     this.#slotObservers = observeSlots(this, OBSERVED_SLOTS, () => {
       this.#handleSlotActivity();
     });
@@ -72839,19 +72838,10 @@ var AcomAside = class extends i4 {
       fallbackLabel: "Related information",
       idPrefix: `${this.id}-heading`
     });
-    this.#emitJsonLd();
   }
-  #emitJsonLd() {
-    emitCreativeWorkJsonLd(this, {
-      key: JSON_LD_KEY,
-      type: "WebPageElement",
-      headingSlot: "heading",
-      descriptionSlots: ["", "body"],
-      actionSlot: "actions",
-      priceSelector: "inline-price",
-      mediaSlot: "media",
-      aboutSlot: "eyebrow"
-    });
+  #cleanupScripts() {
+    const scripts = Array.from(this.children).filter((child) => child.tagName === "SCRIPT");
+    scripts.forEach((script) => script.remove());
   }
   #applyBackgroundColor() {
     const normalized = normalizeBackgroundValue(this.backgroundColor, DEFAULT_BACKGROUND2);
@@ -72895,7 +72885,7 @@ var AcomAside = class extends i4 {
     return Array.from(this.children).some((child) => child.slot === name);
   }
   #ensureHostId() {
-    ensureId(this, JSON_LD_KEY);
+    ensureId(this, "acom-aside");
   }
 };
 customElements.define("acom-aside", AcomAside);
