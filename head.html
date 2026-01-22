@@ -4,16 +4,6 @@
   move-to-http-header="true"
 >
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<style>
-  main {
-    visibility: hidden;
-    opacity: 0;
-  }
-  main.ready {
-    visibility: visible;
-    opacity: 1;
-  }
-  </style>  
 <script nonce="aem" type="module">
   import { fromEds } from '/scripts/from-eds.js';
   // Wrap all experience-element blocks in a structure that fromEds expects
@@ -26,7 +16,7 @@ const blocks = Array.from(main.querySelectorAll('.experience-element'))
   })
   .join('');
 wrapper.innerHTML = `<body><header></header><main>${blocks}</main></body>`;
-main.innerHTML = '<sp-theme system="spectrum-two" color="light" scale="medium"></sp-theme>';
+main.innerHTML = '';
 
 // Convert the EDS block to custom element markup
 const customElementHtml = fromEds(wrapper.innerHTML);
