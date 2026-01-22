@@ -50430,6 +50430,16 @@ var VANILLA_TAGS = /* @__PURE__ */ new Set([
   "u",
   "br"
 ]);
+var BLOCK_TAGS = /* @__PURE__ */ new Set([
+  "section",
+  "div",
+  "article",
+  "aside",
+  "nav",
+  "header",
+  "footer",
+  "main"
+]);
 
 // src/da/to-eds.js
 function hashUrn(urn) {
@@ -50651,6 +50661,9 @@ var EDSSerializer = class {
             }
             slotContents["slot.default"].push(htmlString);
           }
+        } else if (BLOCK_TAGS.has(childTagName)) {
+          const childId = this.processCustomElement(child, id, childSlot);
+          childRefs.push({ id: childId, slot: childSlot });
         } else {
           const childId = this.processCustomElement(child, id, childSlot);
           childRefs.push({ id: childId, slot: childSlot });
@@ -50690,54 +50703,6 @@ var EDSSerializer = class {
     return id;
   }
   /**
-   * Check if element is a page structure root (sp-theme with header/main/footer)
-   */
-  #isPageStructureRoot(element) {
-    const tagName = element.tagName.toLowerCase();
-    if (tagName !== "sp-theme") return false;
-    const main = element.querySelector(":scope > main");
-    if (!main) return false;
-    const sections = main.querySelectorAll(":scope > section");
-    return sections.length > 0;
-  }
-  /**
-   * Process a page structure (sp-theme with header/main/footer)
-   * Creates sp-theme table with section-N slots referencing ee-reference elements
-   */
-  #processPageStructure(spTheme) {
-    const tagName = spTheme.tagName.toLowerCase();
-    const id = this.generateId(tagName, spTheme);
-    const table = {
-      id,
-      type: tagName
-    };
-    Array.from(spTheme.attributes).forEach((attr) => {
-      if (attr.name === "style") {
-        const styleVars = this.parseStyleVariables(attr.value);
-        Object.assign(table, styleVars);
-        return;
-      }
-      const propName = attr.name === "type" ? "attr-type" : attr.name;
-      table[propName] = attr.value;
-    });
-    const main = spTheme.querySelector(":scope > main");
-    const sections = Array.from(main.querySelectorAll(":scope > section"));
-    const sectionRefs = [];
-    for (let i21 = 0; i21 < sections.length; i21++) {
-      const section = sections[i21];
-      const customElement = this.#findFirstCustomElement(section);
-      if (customElement) {
-        const childId = this.processCustomElement(customElement);
-        sectionRefs.push({ index: i21 + 1, id: childId });
-      }
-    }
-    for (const { index, id: childId } of sectionRefs) {
-      table[`slot.section-${index}`] = `\u2192 ${childId}`;
-    }
-    this.tables.push(table);
-    return id;
-  }
-  /**
    * Convert HTML string to EDS tables
    */
   toEDS(htmlString) {
@@ -50746,10 +50711,6 @@ var EDSSerializer = class {
     const rootElement = doc3.body.firstElementChild;
     if (!rootElement) {
       throw new Error("No root element found");
-    }
-    if (this.#isPageStructureRoot(rootElement)) {
-      this.#processPageStructure(rootElement);
-      return this.tables;
     }
     this.processCustomElement(rootElement);
     return this.tables;
@@ -51265,85 +51226,12 @@ var EDSBlockDeserializer = class {
     return null;
   }
   /**
-   * Check if a table represents a page structure (sp-theme with section-N slots)
-   */
-  #isPageStructureTable(table) {
-    const elementName = this.getElementNameFromTable(table);
-    if (elementName?.toLowerCase() !== "sp-theme") return false;
-    const rows = table.querySelectorAll("tr");
-    for (const row of rows) {
-      const cells = row.querySelectorAll("td");
-      if (cells.length === 2) {
-        const key = cells[0].textContent.trim();
-        if (/^section-\d+$/i.test(key)) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-  /**
-   * Convert a page structure table (sp-theme with section-N slots) to full page HTML
-   */
-  #convertPageStructureTable(table) {
-    const parser = new DOMParser();
-    const tempDoc = parser.parseFromString(`<sp-theme></sp-theme>`, "text/html");
-    const spTheme = tempDoc.body.firstElementChild;
-    const rows = table.querySelectorAll("tr");
-    const sectionRefs = [];
-    for (const row of rows) {
-      const cells = row.querySelectorAll("td");
-      if (cells.length === 1 && cells[0].getAttribute("colspan") === "2") {
-        continue;
-      }
-      if (cells.length !== 2) continue;
-      const key = cells[0].textContent.trim();
-      const textContent = cells[1].textContent.trim();
-      if (key === "element-name") {
-        continue;
-      }
-      const sectionMatch = key.match(/^section-(\d+)$/i);
-      if (sectionMatch) {
-        const sectionIndex = parseInt(sectionMatch[1], 10);
-        const refs = this.parseReferences(textContent);
-        if (refs.length > 0) {
-          sectionRefs.push({ index: sectionIndex, refId: refs[0] });
-        }
-        continue;
-      }
-      const attrName = key === "attr-type" ? "type" : key;
-      spTheme.setAttribute(attrName, textContent);
-    }
-    sectionRefs.sort((a23, b12) => a23.index - b12.index);
-    const header = document.createElement("header");
-    const main = document.createElement("main");
-    const footer = document.createElement("footer");
-    for (const { refId } of sectionRefs) {
-      const refTable = this.#tableMap.get(refId);
-      if (refTable) {
-        const converted = this.convertTable(refTable);
-        if (converted) {
-          const section = document.createElement("section");
-          section.appendChild(converted);
-          main.appendChild(section);
-        }
-      }
-    }
-    spTheme.appendChild(header);
-    spTheme.appendChild(main);
-    spTheme.appendChild(footer);
-    return spTheme;
-  }
-  /**
    * Convert an author format table to a custom element
    */
   convertTable(table) {
     const elementName = this.getElementNameFromTable(table);
     if (!elementName) {
       return null;
-    }
-    if (this.#isPageStructureTable(table)) {
-      return this.#convertPageStructureTable(table);
     }
     const tagName = elementName.toLowerCase();
     const parser = new DOMParser();

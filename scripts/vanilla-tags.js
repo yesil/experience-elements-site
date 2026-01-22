@@ -19,3 +19,18 @@ export const VANILLA_TAGS = new Set([
   "u",
   "br",
 ]);
+
+/**
+ * Block-level HTML tags that should be serialized as separate tables
+ * (not treated as inline vanilla tags, but also not custom elements)
+ */
+export const BLOCK_TAGS = new Set([
+  "section",
+  "div",
+  "article",
+  "aside",
+  "nav",
+  "header",
+  "footer",
+  "main",
+]);
