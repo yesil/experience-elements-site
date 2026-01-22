@@ -48520,8 +48520,6 @@ var showToast = (editor, message) => {
 var publishCurrent = async (editor) => {
   const urn = editor.store?.editorStore?.currentElementId;
   if (!urn) return;
-  showToast(editor, "Publishing started\u2026");
-  await editor.store?.documentStore?.publishDocument?.(urn);
   const path = String(urn).replace(/\.html$/, "").replace(/^\/+/, "");
   const parts = path.split("/");
   if (parts.length >= 3) {
@@ -50609,14 +50607,11 @@ var EDSSerializer = class {
       const propName = attr.name === "type" ? "attr-type" : attr.name;
       table[propName] = attr.value;
     });
-    if (isEeReference) {
-      this.tables.push(table);
-      return id;
-    }
     const slotContents = {};
     const childRefs = [];
     const childNodes = Array.from(element.childNodes);
-    const hasMixedInlineContent = this.#hasMixedInlineContent(childNodes);
+    const skipDefaultSlot = isEeReference;
+    const hasMixedInlineContent = !skipDefaultSlot && this.#hasMixedInlineContent(childNodes);
     if (hasMixedInlineContent) {
       const htmlString = this.#serializeMixedContent(childNodes);
       if (htmlString.trim()) {
@@ -50626,7 +50621,7 @@ var EDSSerializer = class {
       childNodes.forEach((child) => {
         if (child.nodeType === Node.TEXT_NODE) {
           const text = child.textContent.trim();
-          if (text) {
+          if (text && !skipDefaultSlot) {
             if (!slotContents["slot.default"]) {
               slotContents["slot.default"] = [];
             }
@@ -50639,13 +50634,17 @@ var EDSSerializer = class {
         }
         const childTagName = child.tagName.toLowerCase();
         const childSlot = child.getAttribute("slot");
+        if (skipDefaultSlot && !childSlot) {
+          return;
+        }
         if (this.isVanillaTag(childTagName)) {
           const htmlString = this.serializeVanillaHTML(child);
           if (childSlot) {
-            if (!slotContents[`slot.${childSlot}`]) {
-              slotContents[`slot.${childSlot}`] = [];
+            const slotKey = childTagName !== "div" ? `slot.${childSlot}[${childTagName}]` : `slot.${childSlot}`;
+            if (!slotContents[slotKey]) {
+              slotContents[slotKey] = [];
             }
-            slotContents[`slot.${childSlot}`].push(htmlString);
+            slotContents[slotKey].push(htmlString);
           } else {
             if (!slotContents["slot.default"]) {
               slotContents["slot.default"] = [];
@@ -50819,6 +50818,13 @@ function toEds(htmlString, options = {}) {
 }
 
 // src/da/from-eds.js
+function parseSlotNameWithTag(slotName) {
+  const match = slotName.match(/^(.+?)\[([a-z0-9]+)\]$/i);
+  if (match) {
+    return { name: match[1], tag: match[2] };
+  }
+  return { name: slotName, tag: "div" };
+}
 var EDSBlockDeserializer = class {
   #blockMap = /* @__PURE__ */ new Map();
   #tableMap = /* @__PURE__ */ new Map();
@@ -51040,10 +51046,12 @@ var EDSBlockDeserializer = class {
     for (const row of rows) {
       const parsed = this.parseBlockRow(row);
       if (!parsed) continue;
-      const { slotName, content, isSlot } = parsed;
-      if (slotName === "element-name") {
+      const { slotName: rawSlotName, content, isSlot } = parsed;
+      if (rawSlotName === "element-name") {
         continue;
       }
+      const { name: slotName, tag: slotTag } = rawSlotName ? parseSlotNameWithTag(rawSlotName) : { name: null, tag: "div" };
+      const hasTagNotation = rawSlotName && rawSlotName !== slotName;
       const textContent = content.textContent.trim();
       const innerHTML = content.innerHTML.trim();
       if (slotName?.startsWith("style-")) {
@@ -51087,13 +51095,16 @@ var EDSBlockDeserializer = class {
       }
       if (isSlot) {
         const children = Array.from(content.children);
-        if (children.length === 1 && /^(p|h[1-6]|div|ul|ol|table|blockquote|pre|figure)$/i.test(children[0].tagName)) {
-          const cloned = children[0].cloneNode(true);
-          cloned.setAttribute("slot", slotName);
-          element.appendChild(cloned);
-          continue;
+        if (children.length === 1) {
+          const childTag = children[0].tagName.toLowerCase();
+          if (hasTagNotation && childTag === slotTag || /^(p|h[1-6]|div|ul|ol|table|blockquote|pre|figure)$/i.test(childTag)) {
+            const cloned = children[0].cloneNode(true);
+            cloned.setAttribute("slot", slotName);
+            element.appendChild(cloned);
+            continue;
+          }
         }
-        const wrapper = document.createElement("p");
+        const wrapper = document.createElement(hasTagNotation ? slotTag : "p");
         wrapper.innerHTML = innerHTML;
         wrapper.setAttribute("slot", slotName);
         element.appendChild(wrapper);
@@ -51107,6 +51118,13 @@ var EDSBlockDeserializer = class {
         } else if (converted) {
           element.appendChild(converted);
         }
+        continue;
+      }
+      if (hasTagNotation) {
+        const wrapper = document.createElement(slotTag);
+        wrapper.textContent = textContent;
+        wrapper.setAttribute("slot", slotName);
+        element.appendChild(wrapper);
         continue;
       }
       if (slotName) {
@@ -51356,13 +51374,15 @@ var EDSBlockDeserializer = class {
         continue;
       }
       if (cells.length !== 2) continue;
-      const key = cells[0].textContent.trim();
+      const rawKey = cells[0].textContent.trim();
       const valueCell = cells[1];
       const textContent = valueCell.textContent.trim();
       const innerHTML = valueCell.innerHTML.trim();
-      if (key === "element-name") {
+      if (rawKey === "element-name") {
         continue;
       }
+      const { name: key, tag: slotTag } = parseSlotNameWithTag(rawKey);
+      const hasTagNotation = rawKey !== key;
       if (key.startsWith("style-")) {
         const varName = key.substring(6);
         styleVars[`--${varName}`] = textContent;
@@ -51393,19 +51413,29 @@ var EDSBlockDeserializer = class {
           continue;
         }
         const children = Array.from(valueCell.children);
-        if (children.length === 1 && /^(p|h[1-6]|div|ul|ol|table|blockquote|pre|figure)$/i.test(children[0].tagName)) {
-          const cloned = children[0].cloneNode(true);
-          if (key) {
-            cloned.setAttribute("slot", key);
+        if (children.length === 1) {
+          const childTag = children[0].tagName.toLowerCase();
+          if (hasTagNotation && childTag === slotTag || /^(p|h[1-6]|div|ul|ol|table|blockquote|pre|figure)$/i.test(childTag)) {
+            const cloned = children[0].cloneNode(true);
+            if (key) {
+              cloned.setAttribute("slot", key);
+            }
+            element.appendChild(cloned);
+            continue;
           }
-          element.appendChild(cloned);
-          continue;
         }
-        const wrapper = document.createElement("span");
+        const wrapper = document.createElement(hasTagNotation ? slotTag : "span");
         wrapper.innerHTML = innerHTML;
         if (key) {
           wrapper.setAttribute("slot", key);
         }
+        element.appendChild(wrapper);
+        continue;
+      }
+      if (hasTagNotation) {
+        const wrapper = document.createElement(slotTag);
+        wrapper.textContent = textContent;
+        wrapper.setAttribute("slot", key);
         element.appendChild(wrapper);
         continue;
       }

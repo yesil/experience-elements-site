@@ -25,6 +25,18 @@
 
 import { VANILLA_TAGS } from "./vanilla-tags.js";
 
+/**
+ * Parse slot name with optional tag: "heading[h2]" → { name: "heading", tag: "h2" }
+ * Returns { name, tag } where tag defaults to "div" if not specified
+ */
+function parseSlotNameWithTag(slotName) {
+  const match = slotName.match(/^(.+?)\[([a-z0-9]+)\]$/i);
+  if (match) {
+    return { name: match[1], tag: match[2] };
+  }
+  return { name: slotName, tag: 'div' };
+}
+
 class EDSBlockDeserializer {
   #blockMap = new Map();
   #tableMap = new Map();
@@ -301,12 +313,16 @@ class EDSBlockDeserializer {
       const parsed = this.parseBlockRow(row);
       if (!parsed) continue;
 
-      const { slotName, content, isSlot } = parsed;
+      const { slotName: rawSlotName, content, isSlot } = parsed;
 
       // Skip element-name row (already handled)
-      if (slotName === "element-name") {
+      if (rawSlotName === "element-name") {
         continue;
       }
+
+      // Parse slot name with optional tag bracket notation: "heading[h2]" → { name: "heading", tag: "h2" }
+      const { name: slotName, tag: slotTag } = rawSlotName ? parseSlotNameWithTag(rawSlotName) : { name: null, tag: 'div' };
+      const hasTagNotation = rawSlotName && rawSlotName !== slotName; // true if bracket notation was present
 
       const textContent = content.textContent.trim();
       const innerHTML = content.innerHTML.trim();
@@ -363,16 +379,20 @@ class EDSBlockDeserializer {
 
       // 5. Bold-marked slot name (isSlot=true) → create slot content
       if (isSlot) {
-        // Check if content has a single block-level element - add slot directly to it
+        // Check if content has a single element matching the slot tag - add slot directly to it
         const children = Array.from(content.children);
-        if (children.length === 1 && /^(p|h[1-6]|div|ul|ol|table|blockquote|pre|figure)$/i.test(children[0].tagName)) {
-          const cloned = children[0].cloneNode(true);
-          cloned.setAttribute("slot", slotName);
-          element.appendChild(cloned);
-          continue;
+        if (children.length === 1) {
+          const childTag = children[0].tagName.toLowerCase();
+          // If tag matches slot tag notation, or is a block-level element, set slot directly
+          if ((hasTagNotation && childTag === slotTag) || /^(p|h[1-6]|div|ul|ol|table|blockquote|pre|figure)$/i.test(childTag)) {
+            const cloned = children[0].cloneNode(true);
+            cloned.setAttribute("slot", slotName);
+            element.appendChild(cloned);
+            continue;
+          }
         }
-        // Plain text or inline content - wrap in p for proper block-level slot content
-        const wrapper = document.createElement("p");
+        // Plain text or inline content - wrap in extracted tag (from bracket notation) or p as fallback
+        const wrapper = document.createElement(hasTagNotation ? slotTag : "p");
         wrapper.innerHTML = innerHTML;
         wrapper.setAttribute("slot", slotName);
         element.appendChild(wrapper);
@@ -394,7 +414,16 @@ class EDSBlockDeserializer {
         continue;
       }
 
-      // 8. Plain text → attribute
+      // 8. Plain text with tag notation → wrap in tag with slot attribute
+      if (hasTagNotation) {
+        const wrapper = document.createElement(slotTag);
+        wrapper.textContent = textContent;
+        wrapper.setAttribute("slot", slotName);
+        element.appendChild(wrapper);
+        continue;
+      }
+
+      // 9. Plain text → attribute
       if (slotName) {
         // Convert 'attr-type' back to 'type' (was prefixed to avoid collision with block type)
         const attrName = slotName === "attr-type" ? "type" : slotName;
@@ -716,15 +745,19 @@ class EDSBlockDeserializer {
 
       if (cells.length !== 2) continue;
 
-      const key = cells[0].textContent.trim();
+      const rawKey = cells[0].textContent.trim();
       const valueCell = cells[1];
       const textContent = valueCell.textContent.trim();
       const innerHTML = valueCell.innerHTML.trim();
 
       // Skip element-name row (already handled)
-      if (key === "element-name") {
+      if (rawKey === "element-name") {
         continue;
       }
+
+      // Parse slot name with optional tag bracket notation: "heading[h2]" → { name: "heading", tag: "h2" }
+      const { name: key, tag: slotTag } = parseSlotNameWithTag(rawKey);
+      const hasTagNotation = rawKey !== key; // true if bracket notation was present
 
       // 1. Style variables: "style-*" prefix → CSS custom property
       if (key.startsWith("style-")) {
@@ -762,18 +795,22 @@ class EDSBlockDeserializer {
           });
           continue;
         }
-        // Check if content has a single block-level element - add slot directly to it
+        // Check if content has a single element matching the slot tag - add slot directly to it
         const children = Array.from(valueCell.children);
-        if (children.length === 1 && /^(p|h[1-6]|div|ul|ol|table|blockquote|pre|figure)$/i.test(children[0].tagName)) {
-          const cloned = children[0].cloneNode(true);
-          if (key) {
-            cloned.setAttribute("slot", key);
+        if (children.length === 1) {
+          const childTag = children[0].tagName.toLowerCase();
+          // If tag matches slot tag notation, or is a block-level element, set slot directly
+          if ((hasTagNotation && childTag === slotTag) || /^(p|h[1-6]|div|ul|ol|table|blockquote|pre|figure)$/i.test(childTag)) {
+            const cloned = children[0].cloneNode(true);
+            if (key) {
+              cloned.setAttribute("slot", key);
+            }
+            element.appendChild(cloned);
+            continue;
           }
-          element.appendChild(cloned);
-          continue;
         }
-        // Otherwise wrap in span with slot attribute
-        const wrapper = document.createElement("span");
+        // Otherwise wrap in extracted tag (from bracket notation) or span as fallback
+        const wrapper = document.createElement(hasTagNotation ? slotTag : "span");
         wrapper.innerHTML = innerHTML;
         if (key) {
           wrapper.setAttribute("slot", key);
@@ -782,7 +819,16 @@ class EDSBlockDeserializer {
         continue;
       }
 
-      // 4. Plain text → attribute
+      // 4. Plain text with tag notation → wrap in tag with slot attribute
+      if (hasTagNotation) {
+        const wrapper = document.createElement(slotTag);
+        wrapper.textContent = textContent;
+        wrapper.setAttribute("slot", key);
+        element.appendChild(wrapper);
+        continue;
+      }
+
+      // 5. Plain text → attribute
       if (key) {
         // Convert 'attr-type' back to 'type' (was prefixed to avoid collision with block type)
         const attrName = key === "attr-type" ? "type" : key;
