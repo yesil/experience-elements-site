@@ -23,11 +23,10 @@
  * </paywall-card>
  */
 
-import { VANILLA_TAGS } from './vanilla-tags.js';
+import { VANILLA_TAGS } from "./vanilla-tags.js";
 
 class EDSBlockDeserializer {
   #blockMap = new Map();
-
   #tableMap = new Map();
 
   /**
@@ -35,26 +34,26 @@ class EDSBlockDeserializer {
    */
   isCustomElementClass(className) {
     // "experience-element" is the generic block name for all custom elements
-    if (className === 'experience-element') {
+    if (className === "experience-element") {
       return true;
     }
-    return className && className.includes('-') && !VANILLA_TAGS.has(className);
+    return className && className.includes("-") && !VANILLA_TAGS.has(className);
   }
 
   /**
    * Extract element-name from a block div
    */
   getElementName(blockDiv) {
-    const rows = Array.from(blockDiv.children).filter((c) => c.tagName === 'DIV');
+    const rows = Array.from(blockDiv.children).filter((c) => c.tagName === "DIV");
     for (const row of rows) {
-      const cells = Array.from(row.children).filter((c) => c.tagName === 'DIV');
-      if (cells.length === 2 && cells[0].textContent.trim() === 'element-name') {
+      const cells = Array.from(row.children).filter((c) => c.tagName === "DIV");
+      if (cells.length === 2 && cells[0].textContent.trim() === "element-name") {
         return cells[1].textContent.trim();
       }
     }
     // Fallback to class name if no element-name row
-    const classes = (blockDiv.className || '').split(/\s+/).filter(Boolean);
-    const blockClass = classes.find((c) => c.includes('-') && !VANILLA_TAGS.has(c) && c !== 'experience-element');
+    const classes = (blockDiv.className || "").split(/\s+/).filter(Boolean);
+    const blockClass = classes.find((c) => c.includes("-") && !VANILLA_TAGS.has(c) && c !== "experience-element");
     return blockClass || null;
   }
 
@@ -91,7 +90,7 @@ class EDSBlockDeserializer {
    * Row format: <div><div>slot-name</div><div>content</div></div>
    */
   parseBlockRow(rowDiv) {
-    const cells = Array.from(rowDiv.children).filter((c) => c.tagName === 'DIV');
+    const cells = Array.from(rowDiv.children).filter((c) => c.tagName === "DIV");
 
     if (cells.length === 0) {
       return null;
@@ -107,7 +106,7 @@ class EDSBlockDeserializer {
 
     // Two cells: first is slot name, second is content
     // Check if slot name is wrapped in <strong> (indicates slot, not attribute)
-    const strongEl = cells[0].querySelector('strong');
+    const strongEl = cells[0].querySelector("strong");
     const isSlot = !!strongEl;
     const slotName = strongEl ? strongEl.textContent.trim() : cells[0].textContent.trim();
     const content = cells[1];
@@ -124,7 +123,7 @@ class EDSBlockDeserializer {
    */
   findNestedBlock(contentDiv) {
     for (const child of contentDiv.children) {
-      if (child.tagName === 'DIV' && child.className) {
+      if (child.tagName === "DIV" && child.className) {
         const classes = child.className.split(/\s+/);
         const blockClass = classes.find((c) => this.isCustomElementClass(c));
         if (blockClass) {
@@ -156,7 +155,7 @@ class EDSBlockDeserializer {
     const children = Array.from(contentDiv.children);
     if (children.length !== 1) return false;
     const child = children[0];
-    if (child.tagName !== 'P') return false;
+    if (child.tagName !== "P") return false;
     // Check if <p> contains only text (no nested elements)
     return child.children.length === 0;
   }
@@ -166,8 +165,8 @@ class EDSBlockDeserializer {
    */
   isReferenceOnly(text) {
     // Remove all references and whitespace, check if anything remains
-    const withoutRefs = text.replace(/→\s*[a-z][a-z0-9-]*-\d+/gi, '').replace(/,/g, '').trim();
-    return withoutRefs === '';
+    const withoutRefs = text.replace(/→\s*[a-z][a-z0-9-]*-\d+/gi, "").replace(/,/g, "").trim();
+    return withoutRefs === "";
   }
 
   /**
@@ -179,7 +178,7 @@ class EDSBlockDeserializer {
     if (nestedBlock) {
       const converted = this.convertBlock(nestedBlock.element);
       if (slotName) {
-        converted.setAttribute('slot', slotName);
+        converted.setAttribute("slot", slotName);
       }
       return converted;
     }
@@ -198,7 +197,7 @@ class EDSBlockDeserializer {
         if (refBlock) {
           const converted = this.convertBlock(refBlock);
           if (slotName) {
-            converted.setAttribute('slot', slotName);
+            converted.setAttribute("slot", slotName);
           }
           fragment.appendChild(converted);
         }
@@ -215,7 +214,7 @@ class EDSBlockDeserializer {
       Array.from(contentDiv.childNodes).forEach((node) => {
         const cloned = node.cloneNode(true);
         if (cloned.nodeType === Node.ELEMENT_NODE && slotName) {
-          cloned.setAttribute('slot', slotName);
+          cloned.setAttribute("slot", slotName);
         }
         fragment.appendChild(cloned);
       });
@@ -223,10 +222,10 @@ class EDSBlockDeserializer {
     }
 
     // Simple content - wrap in appropriate element
-    const wrapper = document.createElement('span');
+    const wrapper = document.createElement("span");
     wrapper.innerHTML = innerHTML;
     if (slotName) {
-      wrapper.setAttribute('slot', slotName);
+      wrapper.setAttribute("slot", slotName);
     }
     return wrapper;
   }
@@ -235,7 +234,7 @@ class EDSBlockDeserializer {
    * Convert an EDS block div to a custom element
    */
   convertBlock(blockDiv) {
-    const classes = (blockDiv.className || '').split(/\s+/).filter(Boolean);
+    const classes = (blockDiv.className || "").split(/\s+/).filter(Boolean);
     const blockClass = classes.find((c) => this.isCustomElementClass(c));
 
     if (!blockClass) {
@@ -252,7 +251,7 @@ class EDSBlockDeserializer {
     // Create custom element using DOMParser to avoid custom element upgrade errors
     const tagName = elementName.toLowerCase();
     const parser = new DOMParser();
-    const tempDoc = parser.parseFromString(`<${tagName}></${tagName}>`, 'text/html');
+    const tempDoc = parser.parseFromString(`<${tagName}></${tagName}>`, "text/html");
     const element = tempDoc.body.firstElementChild;
 
     if (!element) {
@@ -262,16 +261,16 @@ class EDSBlockDeserializer {
     }
 
     // Copy additional classes as attributes or variants (excluding experience-element and element name)
-    const otherClasses = classes.filter((c) => c !== blockClass && c !== 'experience-element' && c !== elementName);
+    const otherClasses = classes.filter((c) => c !== blockClass && c !== "experience-element" && c !== elementName);
     if (otherClasses.length > 0) {
       // Could be variants - add as attributes
       otherClasses.forEach((cls) => {
-        element.setAttribute(cls, '');
+        element.setAttribute(cls, "");
       });
     }
 
     // Process rows
-    const rows = Array.from(blockDiv.children).filter((c) => c.tagName === 'DIV');
+    const rows = Array.from(blockDiv.children).filter((c) => c.tagName === "DIV");
     const styleVars = {};
 
     for (const row of rows) {
@@ -281,7 +280,7 @@ class EDSBlockDeserializer {
       const { slotName, content, isSlot } = parsed;
 
       // Skip element-name row (already handled)
-      if (slotName === 'element-name') {
+      if (slotName === "element-name") {
         continue;
       }
 
@@ -289,7 +288,7 @@ class EDSBlockDeserializer {
       const innerHTML = content.innerHTML.trim();
 
       // 1. Style variables: "style-*" prefix → CSS custom property
-      if (slotName?.startsWith('style-')) {
+      if (slotName?.startsWith("style-")) {
         const varName = slotName.substring(6);
         styleVars[`--${varName}`] = textContent;
         continue;
@@ -303,8 +302,8 @@ class EDSBlockDeserializer {
           if (refBlock) {
             const converted = this.convertBlock(refBlock);
             // Only set slot if slotName is provided and not "children" (unslotted)
-            if (slotName && slotName !== 'children') {
-              converted.setAttribute('slot', slotName);
+            if (slotName && slotName !== "children") {
+              converted.setAttribute("slot", slotName);
             }
             element.appendChild(converted);
           }
@@ -314,7 +313,7 @@ class EDSBlockDeserializer {
       }
 
       // 3. Content already has slot attribute → append children directly
-      const slottedChild = content.querySelector('[slot]');
+      const slottedChild = content.querySelector("[slot]");
       if (slottedChild) {
         Array.from(content.childNodes).forEach((node) => {
           element.appendChild(node.cloneNode(true));
@@ -326,7 +325,7 @@ class EDSBlockDeserializer {
       if (slotName === null) {
         // If content is a single <p>, unwrap it (DA wraps text in <p>)
         const children = Array.from(content.children);
-        if (children.length === 1 && children[0].tagName === 'P') {
+        if (children.length === 1 && children[0].tagName === "P") {
           Array.from(children[0].childNodes).forEach((node) => {
             element.appendChild(node.cloneNode(true));
           });
@@ -338,11 +337,20 @@ class EDSBlockDeserializer {
         continue;
       }
 
-      // 5. Bold-marked slot name (isSlot=true) → always create slot content
+      // 5. Bold-marked slot name (isSlot=true) → create slot content
       if (isSlot) {
-        const wrapper = document.createElement('span');
+        // Check if content has a single block-level element - add slot directly to it
+        const children = Array.from(content.children);
+        if (children.length === 1 && /^(p|h[1-6]|div|ul|ol|table|blockquote|pre|figure)$/i.test(children[0].tagName)) {
+          const cloned = children[0].cloneNode(true);
+          cloned.setAttribute("slot", slotName);
+          element.appendChild(cloned);
+          continue;
+        }
+        // Otherwise wrap in span
+        const wrapper = document.createElement("span");
         wrapper.innerHTML = innerHTML;
-        wrapper.setAttribute('slot', slotName);
+        wrapper.setAttribute("slot", slotName);
         element.appendChild(wrapper);
         continue;
       }
@@ -365,7 +373,7 @@ class EDSBlockDeserializer {
       // 8. Plain text → attribute
       if (slotName) {
         // Convert 'attr-type' back to 'type' (was prefixed to avoid collision with block type)
-        const attrName = slotName === 'attr-type' ? 'type' : slotName;
+        const attrName = slotName === "attr-type" ? "type" : slotName;
         element.setAttribute(attrName, textContent);
       }
     }
@@ -374,8 +382,8 @@ class EDSBlockDeserializer {
     if (Object.keys(styleVars).length > 0) {
       const styleStr = Object.entries(styleVars)
         .map(([k, v]) => `${k}: ${v}`)
-        .join('; ');
-      element.setAttribute('style', styleStr);
+        .join("; ");
+      element.setAttribute("style", styleStr);
     }
 
     return element;
@@ -389,7 +397,7 @@ class EDSBlockDeserializer {
     const walk = (node) => {
       if (node.nodeType !== Node.ELEMENT_NODE) return;
 
-      if (node.tagName === 'DIV' && node.className) {
+      if (node.tagName === "DIV" && node.className) {
         const classes = node.className.split(/\s+/);
         if (classes.some((c) => this.isCustomElementClass(c))) {
           blocks.push(node);
@@ -468,9 +476,9 @@ class EDSBlockDeserializer {
    */
   findTables(root) {
     const tables = [];
-    for (const table of root.querySelectorAll('table')) {
-      const firstCell = table.querySelector('tr td');
-      if (firstCell?.textContent.trim() === 'experience-element') {
+    for (const table of root.querySelectorAll("table")) {
+      const firstCell = table.querySelector("tr td");
+      if (firstCell?.textContent.trim() === "experience-element") {
         tables.push(table);
       }
     }
@@ -500,10 +508,10 @@ class EDSBlockDeserializer {
    * Extract element-name from a table
    */
   getElementNameFromTable(table) {
-    const rows = table.querySelectorAll('tr');
+    const rows = table.querySelectorAll("tr");
     for (const row of rows) {
-      const cells = row.querySelectorAll('td');
-      if (cells.length === 2 && cells[0].textContent.trim() === 'element-name') {
+      const cells = row.querySelectorAll("td");
+      if (cells.length === 2 && cells[0].textContent.trim() === "element-name") {
         return cells[1].textContent.trim();
       }
     }
@@ -522,29 +530,29 @@ class EDSBlockDeserializer {
     // Create custom element using DOMParser to avoid custom element upgrade errors
     const tagName = elementName.toLowerCase();
     const parser = new DOMParser();
-    const tempDoc = parser.parseFromString(`<${tagName}></${tagName}>`, 'text/html');
+    const tempDoc = parser.parseFromString(`<${tagName}></${tagName}>`, "text/html");
     const element = tempDoc.body.firstElementChild;
 
     if (!element) {
       return document.createElement(tagName);
     }
 
-    const rows = table.querySelectorAll('tr');
+    const rows = table.querySelectorAll("tr");
     const styleVars = {};
 
     for (const row of rows) {
-      const cells = row.querySelectorAll('td');
-
+      const cells = row.querySelectorAll("td");
+      
       // Skip header row (experience-element)
-      if (cells.length === 1 && cells[0].getAttribute('colspan') === '2') {
+      if (cells.length === 1 && cells[0].getAttribute("colspan") === "2") {
         const text = cells[0].textContent.trim();
-        if (text === 'experience-element') {
+        if (text === "experience-element") {
           continue;
         }
         // Unslotted HTML content (colspan=2 but not header)
         // If content is a single <p>, unwrap it (toEds wraps content to protect <strong> tags)
         const children = Array.from(cells[0].children);
-        if (children.length === 1 && children[0].tagName === 'P') {
+        if (children.length === 1 && children[0].tagName === "P") {
           // Single <p> wrapper - unwrap by appending its children
           Array.from(children[0].childNodes).forEach((node) => {
             element.appendChild(node.cloneNode(true));
@@ -566,12 +574,12 @@ class EDSBlockDeserializer {
       const innerHTML = valueCell.innerHTML.trim();
 
       // Skip element-name row (already handled)
-      if (key === 'element-name') {
+      if (key === "element-name") {
         continue;
       }
 
       // 1. Style variables: "style-*" prefix → CSS custom property
-      if (key.startsWith('style-')) {
+      if (key.startsWith("style-")) {
         const varName = key.substring(6);
         styleVars[`--${varName}`] = textContent;
         continue;
@@ -586,8 +594,8 @@ class EDSBlockDeserializer {
             const converted = this.convertTable(refTable);
             if (converted) {
               // Only set slot if key is provided and not "children" (unslotted)
-              if (key && key !== 'children') {
-                converted.setAttribute('slot', key);
+              if (key && key !== "children") {
+                converted.setAttribute("slot", key);
               }
               element.appendChild(converted);
             }
@@ -599,18 +607,28 @@ class EDSBlockDeserializer {
       // 3. HTML content (has tags) → slot content
       if (innerHTML !== textContent) {
         // Check if content already has slot attribute - append directly without wrapping
-        const slottedChild = valueCell.querySelector('[slot]');
+        const slottedChild = valueCell.querySelector("[slot]");
         if (slottedChild) {
           Array.from(valueCell.childNodes).forEach((node) => {
             element.appendChild(node.cloneNode(true));
           });
           continue;
         }
-        // Wrap in span with slot attribute
-        const wrapper = document.createElement('span');
+        // Check if content has a single block-level element - add slot directly to it
+        const children = Array.from(valueCell.children);
+        if (children.length === 1 && /^(p|h[1-6]|div|ul|ol|table|blockquote|pre|figure)$/i.test(children[0].tagName)) {
+          const cloned = children[0].cloneNode(true);
+          if (key) {
+            cloned.setAttribute("slot", key);
+          }
+          element.appendChild(cloned);
+          continue;
+        }
+        // Otherwise wrap in span with slot attribute
+        const wrapper = document.createElement("span");
         wrapper.innerHTML = innerHTML;
         if (key) {
-          wrapper.setAttribute('slot', key);
+          wrapper.setAttribute("slot", key);
         }
         element.appendChild(wrapper);
         continue;
@@ -619,7 +637,7 @@ class EDSBlockDeserializer {
       // 4. Plain text → attribute
       if (key) {
         // Convert 'attr-type' back to 'type' (was prefixed to avoid collision with block type)
-        const attrName = key === 'attr-type' ? 'type' : key;
+        const attrName = key === "attr-type" ? "type" : key;
         element.setAttribute(attrName, textContent);
       }
     }
@@ -628,8 +646,8 @@ class EDSBlockDeserializer {
     if (Object.keys(styleVars).length > 0) {
       const styleStr = Object.entries(styleVars)
         .map(([k, v]) => `${k}: ${v}`)
-        .join('; ');
-      element.setAttribute('style', styleStr);
+        .join("; ");
+      element.setAttribute("style", styleStr);
     }
 
     return element;
@@ -694,10 +712,10 @@ class EDSBlockDeserializer {
    */
   fromEDS(html) {
     const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
+    const doc = parser.parseFromString(html, "text/html");
 
     // Look for content inside <main>, fall back to <body>
-    const main = doc.body.querySelector('main');
+    const main = doc.body.querySelector("main");
     const root = main || doc.body;
 
     // Try author format (tables) first
@@ -733,10 +751,10 @@ class EDSBlockDeserializer {
    */
   toElement(html) {
     const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
+    const doc = parser.parseFromString(html, "text/html");
 
     // Look for content inside <main>, fall back to <body>
-    const main = doc.body.querySelector('main');
+    const main = doc.body.querySelector("main");
     const root = main || doc.body;
 
     // Try author format (tables) first
