@@ -26,13 +26,18 @@ const parser = new DOMParser();
 const doc = parser.parseFromString(customElementHtml, 'text/html');
 let customElement = doc.body.firstElementChild;
 
-// If sp-theme is not a direct child of body, wrap body content in sp-theme
-if (!doc.body.querySelector(':scope > sp-theme')) {
-  main.outerHTML = `<sp-theme system="spectrum-two" color="light" scale="medium"><main></main></sp-theme>`;
-  main = document.body.querySelector('main');
-} 
+// Create sp-theme wrapper and preserve main element structure
+const spTheme = document.createElement('sp-theme');
+spTheme.setAttribute('system', 'spectrum-two');
+spTheme.setAttribute('color', 'light');
+spTheme.setAttribute('scale', 'medium');
 
-main.replaceWith(customElement);
+// Create a new main element to hold the converted content
+const newMain = document.createElement('main');
+newMain.appendChild(customElement);
+spTheme.appendChild(newMain);
+
+main.replaceWith(spTheme);
 </script>
 <script nonce="aem" src="/scripts/bundle.js" type="module"></script>
 <script nonce="aem" src="/scripts/from-eds.js" type="module"></script>
