@@ -29,7 +29,7 @@ let customElement = doc.body.firstElementChild;
 // If sp-theme is not a direct child of body, wrap body content in sp-theme
 if (!doc.body.querySelector(':scope > sp-theme')) {
   main.outerHTML = `<sp-theme system="spectrum-two" color="light" scale="medium"><main></main></sp-theme>`;
-  main = doc.body.querySelector('main');
+  main = document.body.querySelector('main');
 } 
 
 main.replaceWith(customElement);
