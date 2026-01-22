@@ -27,8 +27,7 @@ const doc = parser.parseFromString(customElementHtml, 'text/html');
 const customElement = doc.body.firstElementChild;
 
 // Insert the custom element into the DOM
-main.firstElementChild.appendChild(customElement);
-main.classList.add('ready');
+main.appendChild(customElement);
 </script>
 <script nonce="aem" src="/scripts/bundle.js" type="module"></script>
 <script nonce="aem" src="/scripts/from-eds.js" type="module"></script>
