@@ -51386,7 +51386,8 @@ var DASource = class {
   #buildSourceUrl(path) {
     const pathStr = String(path || "");
     if (pathStr.startsWith("/")) {
-      return `${BASE_URL}/source${pathStr}`;
+      const normalizedFullPath = pathStr.endsWith(".html") || pathStr.endsWith("/") ? pathStr : `${pathStr}.html`;
+      return `${BASE_URL}/source${normalizedFullPath}`;
     }
     const cleanPath = this.#stripOrgRepoPrefix(pathStr);
     const normalized = this.#normalizePath(cleanPath);
@@ -51495,9 +51496,11 @@ var DASource = class {
       throw new Error(`Failed to create source: ${response.status} ${response.statusText}`);
     }
     const result = await response.json();
+    const fullPath = result?.source?.path || null;
     const cleanPath = this.#stripOrgRepoPrefix(path);
     const normalizedPath = this.#normalizePath(cleanPath);
-    return { path: normalizedPath, status: response.status, ...result };
+    const inputFullPath = path.startsWith("/") ? path.endsWith(".html") || path.endsWith("/") ? path : `${path}.html` : null;
+    return { path: normalizedPath, fullPath: fullPath || inputFullPath, status: response.status, ...result };
   }
   /**
    * Delete source content (sourceDelete)
@@ -51756,9 +51759,9 @@ var DASource = class {
     const parentDir = lastSlash > 0 ? normalized.substring(0, lastSlash) : "";
     const sanitizedName = String(newName || "").trim().replace(/\.html$/, "");
     const relativePath = parentDir ? `${parentDir}/${sanitizedName}.html` : `${sanitizedName}.html`;
-    const destinationPath = `/${this.repo}/${relativePath}`;
-    await this.moveSource(currentPath, destinationPath);
-    return { path: relativePath, name: newName };
+    const fullPath = `/${this.repo}/${relativePath}`;
+    await this.moveSource(currentPath, fullPath);
+    return { path: relativePath, fullPath, name: newName };
   }
 };
 
@@ -52051,19 +52054,23 @@ var DocumentStore = class {
     const useFolderScope = view === "files";
     const folderPath = useFolderScope ? appStore?.currentFolderUrn ?? "" : "";
     const items = await this.listFolder(folderPath).catch(() => []);
-    const docs = items.map((item) => {
+    const seen = /* @__PURE__ */ new Set();
+    const docs = [];
+    for (const item of items) {
       const itemPath = item.path || item.name || "";
+      if (seen.has(itemPath)) continue;
+      seen.add(itemPath);
       const isFolder = !item.ext || itemPath.endsWith("/");
       const name = item.name || itemPath.split("/").filter(Boolean).pop() || "Untitled";
-      return {
+      docs.push({
         path: itemPath,
         urn: itemPath,
         // Alias for UI compatibility
         name,
         isFolder,
         lastModified: item.lastModified
-      };
-    });
+      });
+    }
     this.setIsLoadingElements(false);
     if (options.append) {
       appStore.appendSavedElements?.(docs || []);
@@ -52105,7 +52112,8 @@ var DocumentStore = class {
     const edsHtml = html ? toEds(html, { format: "html" }) : "";
     const savePromise = this.#daSource.saveDocument(path, edsHtml);
     const result = await this.#trackWrite(savePromise);
-    return { ...result, path: result.path, urn: result.path, name };
+    const fullPath = result.fullPath || `/${this.repo}/${result.path}`;
+    return { ...result, path: fullPath, urn: fullPath, name };
   }
   /**
    * Generate a URL-safe slug from a name
@@ -52267,7 +52275,8 @@ var DocumentStore = class {
     if (!sanitizedName) return null;
     const renamePromise = this.#daSource.renameDocument(path, sanitizedName);
     const result = await this.#trackWrite(renamePromise);
-    return { path: result.path, urn: result.path, name: newName };
+    const fullPath = result.fullPath || `/${this.repo}/${result.path}`;
+    return { path: fullPath, urn: fullPath, name: newName };
   }
   /**
    * Get documents as markdown table (for MCP tools)
@@ -52282,7 +52291,15 @@ var DocumentStore = class {
     if (!items || items.length === 0) {
       return "No documents found.";
     }
-    const paginatedItems = items.slice(offset4, offset4 + limit);
+    const seen = /* @__PURE__ */ new Set();
+    const uniqueItems = [];
+    for (const item of items) {
+      const itemPath = item.path || item.name || "";
+      if (seen.has(itemPath)) continue;
+      seen.add(itemPath);
+      uniqueItems.push(item);
+    }
+    const paginatedItems = uniqueItems.slice(offset4, offset4 + limit);
     if (paginatedItems.length === 0) {
       return "No documents found.";
     }
@@ -52297,7 +52314,7 @@ var DocumentStore = class {
       markdown += `| [${name}](${url}) | ${date} | ${type} | \`${itemPath}\` |
 `;
     }
-    const hasMore = items.length > offset4 + limit;
+    const hasMore = uniqueItems.length > offset4 + limit;
     if (hasMore) {
       const nextOffset = offset4 + limit;
       const parentParam = parentPath ? `&parentUrn=${encodeURIComponent(parentPath)}` : "";
@@ -52410,18 +52427,22 @@ var DocumentStore = class {
   async getDocuments(parentPath = null, opts = {}) {
     const folderPath = parentPath || "";
     const items = await this.listFolder(folderPath);
-    const docs = items.map((item) => {
+    const seen = /* @__PURE__ */ new Set();
+    const docs = [];
+    for (const item of items) {
       const itemPath = item.path || item.name || "";
+      if (seen.has(itemPath)) continue;
+      seen.add(itemPath);
       const isFolder = !item.ext || itemPath.endsWith("/");
       const name = item.name || itemPath.split("/").filter(Boolean).pop() || "Untitled";
-      return {
+      docs.push({
         path: itemPath,
         urn: itemPath,
         name,
         isFolder,
         lastModified: item.lastModified
-      };
-    });
+      });
+    }
     const offset4 = opts.offset || 0;
     const limit = opts.limit || docs.length;
     return docs.slice(offset4, offset4 + limit);
@@ -54088,9 +54109,11 @@ var GalleryStore = class {
   }
   appendSavedElements(list, limit = 50) {
     const items = Array.isArray(list) ? list : [];
-    this.savedElements = [...this.savedElements, ...items];
+    const existingUrns = new Set(this.savedElements.map((el) => el.urn || el.path));
+    const newItems = items.filter((item) => !existingUrns.has(item.urn || item.path));
+    this.savedElements = [...this.savedElements, ...newItems];
     this.#filter.setSavedElements(this.savedElements);
-    this.setHasMore(items.length >= limit);
+    this.setHasMore(newItems.length >= limit);
   }
   setHasMore(value) {
     this.hasMore = !!value;

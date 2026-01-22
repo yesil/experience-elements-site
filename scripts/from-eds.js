@@ -77,12 +77,36 @@ class EDSBlockDeserializer {
       const elementName = this.getElementName(block);
       if (elementName) {
         const nameLower = elementName.toLowerCase();
+        // For ee-reference, use data-reference attribute for stable ID
+        if (nameLower === 'ee-reference') {
+          const dataRef = this.#getAttributeFromBlock(block, 'data-reference');
+          if (dataRef) {
+            const blockId = `ee-reference-${dataRef}`;
+            this.#blockMap.set(blockId, block);
+            continue;
+          }
+        }
+        // Fallback to counter-based ID
         const count = (blockCounts.get(nameLower) || 0) + 1;
         blockCounts.set(nameLower, count);
         const blockId = `${nameLower}-${count}`;
         this.#blockMap.set(blockId, block);
       }
     }
+  }
+
+  /**
+   * Get an attribute value from a block div row
+   */
+  #getAttributeFromBlock(blockDiv, attrName) {
+    const rows = Array.from(blockDiv.children).filter((c) => c.tagName === "DIV");
+    for (const row of rows) {
+      const cells = Array.from(row.children).filter((c) => c.tagName === "DIV");
+      if (cells.length === 2 && cells[0].textContent.trim() === attrName) {
+        return cells[1].textContent.trim();
+      }
+    }
+    return null;
   }
 
   /**
@@ -139,8 +163,8 @@ class EDSBlockDeserializer {
    */
   parseReferences(text) {
     const refs = [];
-    // Match references like "→ div-1", "→ ee-media-1", "→ paywall-card-2"
-    const matches = text.matchAll(/→\s*([a-z][a-z0-9-]*-\d+)/gi);
+    // Match references like "→ div-1", "→ ee-media-1", "→ ee-reference-abc123"
+    const matches = text.matchAll(/→\s*([a-z][a-z0-9-]*-[a-z0-9]+)/gi);
     for (const match of matches) {
       refs.push(match[1].toLowerCase());
     }
@@ -165,7 +189,7 @@ class EDSBlockDeserializer {
    */
   isReferenceOnly(text) {
     // Remove all references and whitespace, check if anything remains
-    const withoutRefs = text.replace(/→\s*[a-z][a-z0-9-]*-\d+/gi, "").replace(/,/g, "").trim();
+    const withoutRefs = text.replace(/→\s*[a-z][a-z0-9-]*-[a-z0-9]+/gi, "").replace(/,/g, "").trim();
     return withoutRefs === "";
   }
 
@@ -421,12 +445,12 @@ class EDSBlockDeserializer {
     if (blocks.length === 0) return null;
     if (blocks.length === 1) return blocks[0];
 
-    // Collect all referenced block IDs (e.g., "ee-media-1", "paywall-card-2")
+    // Collect all referenced block IDs (e.g., "ee-media-1", "ee-reference-abc123")
     const referencedIds = new Set();
     for (const block of blocks) {
       const text = block.textContent;
-      // Match references like "→ div-1", "→ ee-media-1", "→ paywall-card-2"
-      const matches = text.matchAll(/→\s*([a-z][a-z0-9-]*-\d+)/gi);
+      // Match references like "→ div-1", "→ ee-media-1", "→ ee-reference-abc123"
+      const matches = text.matchAll(/→\s*([a-z][a-z0-9-]*-[a-z0-9]+)/gi);
       for (const match of matches) {
         referencedIds.add(match[1].toLowerCase());
       }
@@ -496,12 +520,36 @@ class EDSBlockDeserializer {
       const elementName = this.getElementNameFromTable(table);
       if (elementName) {
         const nameLower = elementName.toLowerCase();
+        // For ee-reference, use data-reference attribute for stable ID
+        if (nameLower === 'ee-reference') {
+          const dataRef = this.#getAttributeFromTable(table, 'data-reference');
+          if (dataRef) {
+            const tableId = `ee-reference-${dataRef}`;
+            this.#tableMap.set(tableId, table);
+            continue;
+          }
+        }
+        // Fallback to counter-based ID
         const count = (tableCounts.get(nameLower) || 0) + 1;
         tableCounts.set(nameLower, count);
         const tableId = `${nameLower}-${count}`;
         this.#tableMap.set(tableId, table);
       }
     }
+  }
+
+  /**
+   * Get an attribute value from a table row
+   */
+  #getAttributeFromTable(table, attrName) {
+    const rows = table.querySelectorAll("tr");
+    for (const row of rows) {
+      const cells = row.querySelectorAll("td");
+      if (cells.length === 2 && cells[0].textContent.trim() === attrName) {
+        return cells[1].textContent.trim();
+      }
+    }
+    return null;
   }
 
   /**
@@ -664,7 +712,7 @@ class EDSBlockDeserializer {
     const referencedIds = new Set();
     for (const table of tables) {
       const text = table.textContent;
-      const matches = text.matchAll(/→\s*([a-z][a-z0-9-]*-\d+)/gi);
+      const matches = text.matchAll(/→\s*([a-z][a-z0-9-]*-[a-z0-9]+)/gi);
       for (const match of matches) {
         referencedIds.add(match[1].toLowerCase());
       }
