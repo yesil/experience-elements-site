@@ -50475,6 +50475,20 @@ var EDSSerializer = class {
     return VANILLA_TAGS.has(tagName.toLowerCase());
   }
   /**
+   * Find the first custom element within a container
+   */
+  #findFirstCustomElement(container) {
+    for (const child of container.children) {
+      const tagName = child.tagName.toLowerCase();
+      if (!this.isVanillaTag(tagName)) {
+        return child;
+      }
+      const nested = this.#findFirstCustomElement(child);
+      if (nested) return nested;
+    }
+    return null;
+  }
+  /**
    * Check if child nodes contain mixed inline content (text + inline vanilla elements)
    * This detects cases like: "text <strong>bold</strong> more text"
    */
@@ -50575,7 +50589,8 @@ var EDSSerializer = class {
     if (slotName) {
       table.slot = slotName;
     }
-    if (tagName === "ee-reference") {
+    const isEeReference = tagName === "ee-reference";
+    if (isEeReference) {
       const urn = element.getAttribute("urn");
       if (urn) {
         const hash = hashUrn(urn);
@@ -50594,6 +50609,10 @@ var EDSSerializer = class {
       const propName = attr.name === "type" ? "attr-type" : attr.name;
       table[propName] = attr.value;
     });
+    if (isEeReference) {
+      this.tables.push(table);
+      return id;
+    }
     const slotContents = {};
     const childRefs = [];
     const childNodes = Array.from(element.childNodes);
@@ -50672,6 +50691,54 @@ var EDSSerializer = class {
     return id;
   }
   /**
+   * Check if element is a page structure root (sp-theme with header/main/footer)
+   */
+  #isPageStructureRoot(element) {
+    const tagName = element.tagName.toLowerCase();
+    if (tagName !== "sp-theme") return false;
+    const main = element.querySelector(":scope > main");
+    if (!main) return false;
+    const sections = main.querySelectorAll(":scope > section");
+    return sections.length > 0;
+  }
+  /**
+   * Process a page structure (sp-theme with header/main/footer)
+   * Creates sp-theme table with section-N slots referencing ee-reference elements
+   */
+  #processPageStructure(spTheme) {
+    const tagName = spTheme.tagName.toLowerCase();
+    const id = this.generateId(tagName, spTheme);
+    const table = {
+      id,
+      type: tagName
+    };
+    Array.from(spTheme.attributes).forEach((attr) => {
+      if (attr.name === "style") {
+        const styleVars = this.parseStyleVariables(attr.value);
+        Object.assign(table, styleVars);
+        return;
+      }
+      const propName = attr.name === "type" ? "attr-type" : attr.name;
+      table[propName] = attr.value;
+    });
+    const main = spTheme.querySelector(":scope > main");
+    const sections = Array.from(main.querySelectorAll(":scope > section"));
+    const sectionRefs = [];
+    for (let i21 = 0; i21 < sections.length; i21++) {
+      const section = sections[i21];
+      const customElement = this.#findFirstCustomElement(section);
+      if (customElement) {
+        const childId = this.processCustomElement(customElement);
+        sectionRefs.push({ index: i21 + 1, id: childId });
+      }
+    }
+    for (const { index, id: childId } of sectionRefs) {
+      table[`slot.section-${index}`] = `\u2192 ${childId}`;
+    }
+    this.tables.push(table);
+    return id;
+  }
+  /**
    * Convert HTML string to EDS tables
    */
   toEDS(htmlString) {
@@ -50681,8 +50748,52 @@ var EDSSerializer = class {
     if (!rootElement) {
       throw new Error("No root element found");
     }
+    if (this.#isPageStructureRoot(rootElement)) {
+      this.#processPageStructure(rootElement);
+      return this.tables;
+    }
     this.processCustomElement(rootElement);
     return this.tables;
+  }
+  /**
+   * Format a single table entry as HTML
+   */
+  #formatTable(table) {
+    const rows = [];
+    rows.push(`    <tr><td>element-name</td><td>${table.type}</td></tr>`);
+    Object.entries(table).forEach(([key, value]) => {
+      if (key.startsWith("slot.")) {
+        const slotName = key.substring(5);
+        if (slotName !== "default") {
+          rows.push(`    <tr><td><strong>${slotName}</strong></td><td>${value}</td></tr>`);
+        }
+      }
+    });
+    Object.entries(table).forEach(([key, value]) => {
+      if (key.startsWith("style.")) {
+        const styleName = key.substring(6);
+        rows.push(`    <tr><td>style-${styleName}</td><td>${value}</td></tr>`);
+      }
+    });
+    Object.entries(table).forEach(([key, value]) => {
+      if (!["id", "type", "parent", "slot", "content", "children"].includes(key) && !key.startsWith("slot.") && !key.startsWith("style.")) {
+        rows.push(`    <tr><td>${key}</td><td>${value}</td></tr>`);
+      }
+    });
+    if (table.children) {
+      rows.push(`    <tr><td>children</td><td>${table.children}</td></tr>`);
+    }
+    if (table["slot.default"]) {
+      const value = table["slot.default"];
+      const needsWrapper = /<strong\b/i.test(value) && !value.trim().startsWith("<p");
+      const wrappedValue = needsWrapper ? `<p>${value}</p>` : value;
+      rows.push(`    <tr><td colspan="2">${wrappedValue}</td></tr>`);
+    }
+    const rowsHtml = rows.join("\n");
+    return `<table>
+  <tr><td colspan="2">experience-element</td></tr>
+${rowsHtml}
+</table>`;
   }
   /**
    * Format tables as HTML (EDS authoring format)
@@ -50691,44 +50802,11 @@ var EDSSerializer = class {
    * Subsequent rows contain slot-name/value pairs
    */
   toHTML() {
-    const tables = this.tables.map((table) => {
-      const rows = [];
-      rows.push(`    <tr><td>element-name</td><td>${table.type}</td></tr>`);
-      Object.entries(table).forEach(([key, value]) => {
-        if (key.startsWith("slot.")) {
-          const slotName = key.substring(5);
-          if (slotName !== "default") {
-            rows.push(`    <tr><td><strong>${slotName}</strong></td><td>${value}</td></tr>`);
-          }
-        }
-      });
-      Object.entries(table).forEach(([key, value]) => {
-        if (key.startsWith("style.")) {
-          const styleName = key.substring(6);
-          rows.push(`    <tr><td>style-${styleName}</td><td>${value}</td></tr>`);
-        }
-      });
-      Object.entries(table).forEach(([key, value]) => {
-        if (!["id", "type", "parent", "slot", "content", "children"].includes(key) && !key.startsWith("slot.") && !key.startsWith("style.")) {
-          rows.push(`    <tr><td>${key}</td><td>${value}</td></tr>`);
-        }
-      });
-      if (table.children) {
-        rows.push(`    <tr><td>children</td><td>${table.children}</td></tr>`);
-      }
-      if (table["slot.default"]) {
-        const value = table["slot.default"];
-        const needsWrapper = /<strong\b/i.test(value) && !value.trim().startsWith("<p");
-        const wrappedValue = needsWrapper ? `<p>${value}</p>` : value;
-        rows.push(`    <tr><td colspan="2">${wrappedValue}</td></tr>`);
-      }
-      const rowsHtml = rows.join("\n");
-      return `<table>
-  <tr><td colspan="2">experience-element</td></tr>
-${rowsHtml}
-</table>`;
-    });
-    return tables.join("\n\n");
+    const output = [];
+    for (const table of this.tables) {
+      output.push(this.#formatTable(table));
+    }
+    return output.join("\n\n");
   }
 };
 function toEds(htmlString, options = {}) {
@@ -51169,12 +51247,85 @@ var EDSBlockDeserializer = class {
     return null;
   }
   /**
+   * Check if a table represents a page structure (sp-theme with section-N slots)
+   */
+  #isPageStructureTable(table) {
+    const elementName = this.getElementNameFromTable(table);
+    if (elementName?.toLowerCase() !== "sp-theme") return false;
+    const rows = table.querySelectorAll("tr");
+    for (const row of rows) {
+      const cells = row.querySelectorAll("td");
+      if (cells.length === 2) {
+        const key = cells[0].textContent.trim();
+        if (/^section-\d+$/i.test(key)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+  /**
+   * Convert a page structure table (sp-theme with section-N slots) to full page HTML
+   */
+  #convertPageStructureTable(table) {
+    const parser = new DOMParser();
+    const tempDoc = parser.parseFromString(`<sp-theme></sp-theme>`, "text/html");
+    const spTheme = tempDoc.body.firstElementChild;
+    const rows = table.querySelectorAll("tr");
+    const sectionRefs = [];
+    for (const row of rows) {
+      const cells = row.querySelectorAll("td");
+      if (cells.length === 1 && cells[0].getAttribute("colspan") === "2") {
+        continue;
+      }
+      if (cells.length !== 2) continue;
+      const key = cells[0].textContent.trim();
+      const textContent = cells[1].textContent.trim();
+      if (key === "element-name") {
+        continue;
+      }
+      const sectionMatch = key.match(/^section-(\d+)$/i);
+      if (sectionMatch) {
+        const sectionIndex = parseInt(sectionMatch[1], 10);
+        const refs = this.parseReferences(textContent);
+        if (refs.length > 0) {
+          sectionRefs.push({ index: sectionIndex, refId: refs[0] });
+        }
+        continue;
+      }
+      const attrName = key === "attr-type" ? "type" : key;
+      spTheme.setAttribute(attrName, textContent);
+    }
+    sectionRefs.sort((a23, b12) => a23.index - b12.index);
+    const header = document.createElement("header");
+    const main = document.createElement("main");
+    const footer = document.createElement("footer");
+    for (const { refId } of sectionRefs) {
+      const refTable = this.#tableMap.get(refId);
+      if (refTable) {
+        const converted = this.convertTable(refTable);
+        if (converted) {
+          const section = document.createElement("section");
+          section.appendChild(converted);
+          main.appendChild(section);
+        }
+      }
+    }
+    spTheme.appendChild(header);
+    spTheme.appendChild(main);
+    spTheme.appendChild(footer);
+    return spTheme;
+  }
+  /**
    * Convert an author format table to a custom element
    */
   convertTable(table) {
     const elementName = this.getElementNameFromTable(table);
     if (!elementName) {
       return null;
+    }
+    if (this.#isPageStructureTable(table)) {
+      return this.#convertPageStructureTable(table);
     }
     const tagName = elementName.toLowerCase();
     const parser = new DOMParser();
@@ -51313,7 +51464,6 @@ var EDSBlockDeserializer = class {
   /**
    * Convert EDS HTML to custom element markup
    * Supports both author format (tables) and published format (div blocks)
-   * Expects input wrapped in <body><header></header><main>content</main></body>
    */
   fromEDS(html) {
     const parser = new DOMParser();

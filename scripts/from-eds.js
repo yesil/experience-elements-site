@@ -509,6 +509,7 @@ class EDSBlockDeserializer {
     return tables;
   }
 
+
   /**
    * Build a map of table IDs from author format tables
    */
@@ -567,12 +568,111 @@ class EDSBlockDeserializer {
   }
 
   /**
+   * Check if a table represents a page structure (sp-theme with section-N slots)
+   */
+  #isPageStructureTable(table) {
+    const elementName = this.getElementNameFromTable(table);
+    if (elementName?.toLowerCase() !== 'sp-theme') return false;
+    
+    // Check if it has section-N slots
+    const rows = table.querySelectorAll("tr");
+    for (const row of rows) {
+      const cells = row.querySelectorAll("td");
+      if (cells.length === 2) {
+        const key = cells[0].textContent.trim();
+        if (/^section-\d+$/i.test(key)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Convert a page structure table (sp-theme with section-N slots) to full page HTML
+   */
+  #convertPageStructureTable(table) {
+    const parser = new DOMParser();
+    const tempDoc = parser.parseFromString(`<sp-theme></sp-theme>`, "text/html");
+    const spTheme = tempDoc.body.firstElementChild;
+
+    const rows = table.querySelectorAll("tr");
+    const sectionRefs = [];
+
+    for (const row of rows) {
+      const cells = row.querySelectorAll("td");
+      
+      // Skip header row
+      if (cells.length === 1 && cells[0].getAttribute("colspan") === "2") {
+        continue;
+      }
+
+      if (cells.length !== 2) continue;
+
+      const key = cells[0].textContent.trim();
+      const textContent = cells[1].textContent.trim();
+
+      // Skip element-name row
+      if (key === "element-name") {
+        continue;
+      }
+
+      // Collect section references
+      const sectionMatch = key.match(/^section-(\d+)$/i);
+      if (sectionMatch) {
+        const sectionIndex = parseInt(sectionMatch[1], 10);
+        const refs = this.parseReferences(textContent);
+        if (refs.length > 0) {
+          sectionRefs.push({ index: sectionIndex, refId: refs[0] });
+        }
+        continue;
+      }
+
+      // Other attributes go on sp-theme
+      const attrName = key === "attr-type" ? "type" : key;
+      spTheme.setAttribute(attrName, textContent);
+    }
+
+    // Sort sections by index
+    sectionRefs.sort((a, b) => a.index - b.index);
+
+    // Build the page structure
+    const header = document.createElement("header");
+    const main = document.createElement("main");
+    const footer = document.createElement("footer");
+
+    // Convert each section reference and wrap in <section>
+    for (const { refId } of sectionRefs) {
+      const refTable = this.#tableMap.get(refId);
+      if (refTable) {
+        const converted = this.convertTable(refTable);
+        if (converted) {
+          const section = document.createElement("section");
+          section.appendChild(converted);
+          main.appendChild(section);
+        }
+      }
+    }
+
+    spTheme.appendChild(header);
+    spTheme.appendChild(main);
+    spTheme.appendChild(footer);
+
+    return spTheme;
+  }
+
+  /**
    * Convert an author format table to a custom element
    */
   convertTable(table) {
     const elementName = this.getElementNameFromTable(table);
     if (!elementName) {
       return null;
+    }
+
+    // Check if this is a page structure (sp-theme with section-N slots)
+    if (this.#isPageStructureTable(table)) {
+      return this.#convertPageStructureTable(table);
     }
 
     // Create custom element using DOMParser to avoid custom element upgrade errors
@@ -753,10 +853,10 @@ class EDSBlockDeserializer {
     return tables[tables.length - 1];
   }
 
+
   /**
    * Convert EDS HTML to custom element markup
    * Supports both author format (tables) and published format (div blocks)
-   * Expects input wrapped in <body><header></header><main>content</main></body>
    */
   fromEDS(html) {
     const parser = new DOMParser();
