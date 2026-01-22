@@ -347,8 +347,8 @@ class EDSBlockDeserializer {
           element.appendChild(cloned);
           continue;
         }
-        // Otherwise wrap in span
-        const wrapper = document.createElement("span");
+        // Plain text or inline content - wrap in p for proper block-level slot content
+        const wrapper = document.createElement("p");
         wrapper.innerHTML = innerHTML;
         wrapper.setAttribute("slot", slotName);
         element.appendChild(wrapper);
