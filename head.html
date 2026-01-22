@@ -26,18 +26,27 @@ const parser = new DOMParser();
 const doc = parser.parseFromString(customElementHtml, 'text/html');
 let customElement = doc.body.firstElementChild;
 
-// Create sp-theme wrapper and preserve main element structure
-const spTheme = document.createElement('sp-theme');
-spTheme.setAttribute('system', 'spectrum-two');
-spTheme.setAttribute('color', 'light');
-spTheme.setAttribute('scale', 'medium');
-
-// Create a new main element to hold the converted content
+// Create a new main element to hold the content
 const newMain = document.createElement('main');
-newMain.appendChild(customElement);
-spTheme.appendChild(newMain);
 
-main.replaceWith(spTheme);
+// Check if sp-theme is already the root element
+if (customElement.tagName.toLowerCase() === 'sp-theme') {
+  // Move sp-theme's children into newMain
+  while (customElement.firstChild) {
+    newMain.appendChild(customElement.firstChild);
+  }
+  customElement.appendChild(newMain);
+  main.replaceWith(customElement);
+} else {
+  // Wrap content in sp-theme
+  const spTheme = document.createElement('sp-theme');
+  spTheme.setAttribute('system', 'spectrum-two');
+  spTheme.setAttribute('color', 'light');
+  spTheme.setAttribute('scale', 'medium');
+  newMain.appendChild(customElement);
+  spTheme.appendChild(newMain);
+  main.replaceWith(spTheme);
+}
 </script>
 <script nonce="aem" src="/scripts/bundle.js" type="module"></script>
 <script nonce="aem" src="/scripts/from-eds.js" type="module"></script>
