@@ -8980,10 +8980,10 @@ var init_dist2 = __esm({
       // return an updated array of marks, or null to indicate some of the
       // styles had a rule with `ignore` set.
       readStyles(dom, marks2) {
-        let styles12 = dom.style;
-        if (styles12 && styles12.length)
+        let styles9 = dom.style;
+        if (styles9 && styles9.length)
           for (let i21 = 0; i21 < this.parser.matchedStyles.length; i21++) {
-            let name = this.parser.matchedStyles[i21], value = styles12.getPropertyValue(name);
+            let name = this.parser.matchedStyles[i21], value = styles9.getPropertyValue(name);
             if (value)
               for (let after = void 0; ; ) {
                 let rule = this.parser.matchStyle(name, value, this, after);
@@ -27910,9 +27910,9 @@ function makeToJson(el, schema2, serializeNode) {
     const collected = [];
     for (const node of nodes2) {
       const tag3 = node.tagName?.toLowerCase?.();
-      const Ctor4 = tag3 ? customElements.get(tag3) : null;
-      if (Ctor4?.ee?.toJson) {
-        collected.push(Ctor4.ee.toJson(node, serializeNode));
+      const Ctor = tag3 ? customElements.get(tag3) : null;
+      if (Ctor?.ee?.toJson) {
+        collected.push(Ctor.ee.toJson(node, serializeNode));
       } else if (serializeNode) {
         collected.push(serializeNode(node));
       }
@@ -27929,8 +27929,8 @@ function makeToJson(el, schema2, serializeNode) {
 
 // src/defaults/a.author.js
 function getDefaultAnchorSchema() {
-  const textStyles5 = ["bold", "italic", "underline", "strikethrough"];
-  const alignFormats5 = ["align-left", "align-center", "align-right"];
+  const textStyles4 = ["bold", "italic", "underline", "strikethrough"];
+  const alignFormats4 = ["align-left", "align-center", "align-right"];
   return {
     schemaVersion: 1,
     element: {
@@ -27989,8 +27989,8 @@ function getDefaultAnchorSchema() {
           minLength: 1,
           inlineEditable: true,
           multiline: false,
-          allowedStyles: [...textStyles5],
-          allowedFormats: [...alignFormats5],
+          allowedStyles: [...textStyles4],
+          allowedFormats: [...alignFormats4],
           allowLinks: false
         }
       }
@@ -29522,9 +29522,6 @@ function stripAuthoringArtifacts(root, helpers = {}) {
         const css = (el.getAttribute("style") || "").trim().replace(/;+$/g, "");
         if (helpers.isComparison || !css) el.removeAttribute("style");
       }
-      if (el.hasAttribute && el.hasAttribute("theme")) {
-        el.removeAttribute("theme");
-      }
       if (el.hasAttribute && el.hasAttribute("class")) {
         if (helpers.beforeSave !== false) el.removeAttribute("class");
       }
@@ -29697,9 +29694,9 @@ function getJsonSnapshot(editorElement) {
         if (serialized.length === 1) return serialized[0];
         return serialized;
       }
-      const Ctor4 = customElements.get(tag3);
-      if (Ctor4?.ee?.toJson) {
-        return Ctor4.ee.toJson(node, serializeNode);
+      const Ctor = customElements.get(tag3);
+      if (Ctor?.ee?.toJson) {
+        return Ctor.ee.toJson(node, serializeNode);
       }
       const def = typeof window !== "undefined" && window.eeDefaults ? window.eeDefaults[tag3] : null;
       if (def?.toJson) {
@@ -29713,9 +29710,9 @@ function getJsonSnapshot(editorElement) {
   for (const el of Array.from(host.children)) {
     if (!(el && el.nodeType === Node.ELEMENT_NODE)) continue;
     const tag3 = el.tagName?.toLowerCase?.();
-    const Ctor4 = tag3 ? customElements.get(tag3) : null;
-    if (Ctor4?.ee?.toJson) {
-      out.push(Ctor4.ee.toJson(el, serializeNode));
+    const Ctor = tag3 ? customElements.get(tag3) : null;
+    if (Ctor?.ee?.toJson) {
+      out.push(Ctor.ee.toJson(el, serializeNode));
     } else {
       const def = typeof window !== "undefined" && window.eeDefaults ? window.eeDefaults[tag3] : null;
       if (def?.toJson) out.push(def.toJson(el, serializeNode));
@@ -47725,7 +47722,10 @@ var summarizeSlotConfig = (config) => {
   if (Array.isArray(config.allowedStyles)) entry.allowedStyles = config.allowedStyles;
   if ("allowLinks" in config) entry.allowLinks = !!config.allowLinks;
   if ("allowPaste" in config) entry.allowPaste = !!config.allowPaste;
-  if (config.tag) entry.tag = config.tag;
+  if (config.tag) {
+    entry.tag = config.tag;
+    entry.important = `default content must be wrapped with <${config.tag}>`;
+  }
   if (config.placeholder) entry.placeholder = config.placeholder;
   if ("plain" in config) entry.plain = !!config.plain;
   if ("multiline" in config) entry.multiline = !!config.multiline;
@@ -48522,6 +48522,14 @@ var publishCurrent = async (editor) => {
   if (!urn) return;
   showToast(editor, "Publishing started\u2026");
   await editor.store?.documentStore?.publishDocument?.(urn);
+  const path = String(urn).replace(/\.html$/, "").replace(/^\/+/, "");
+  const parts = path.split("/");
+  if (parts.length >= 3) {
+    const [owner, repo, ...rest] = parts;
+    const docPath = rest.join("/");
+    const previewUrl = `https://main--${repo}--${owner}.aem.page/${docPath}`;
+    window.open(previewUrl, "_blank", "noopener,noreferrer");
+  }
 };
 var unpublishCurrent = async (editor) => {
   const urn = editor.store?.editorStore?.currentElementId;
@@ -50426,6 +50434,16 @@ var VANILLA_TAGS = /* @__PURE__ */ new Set([
 ]);
 
 // src/da/to-eds.js
+function hashUrn(urn) {
+  if (!urn) return null;
+  let hash = 0;
+  for (let i21 = 0; i21 < urn.length; i21++) {
+    const char = urn.charCodeAt(i21);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash).toString(36);
+}
 var EDSSerializer = class {
   constructor() {
     this.tables = [];
@@ -50433,9 +50451,17 @@ var EDSSerializer = class {
   }
   /**
    * Generate unique ID for an element
+   * For ee-reference elements, uses URN hash for stable IDs
    */
-  generateId(tagName) {
+  generateId(tagName, element = null) {
     const baseName = tagName.toLowerCase();
+    if (baseName === "ee-reference" && element) {
+      const urn = element.getAttribute("urn");
+      if (urn) {
+        const hash = hashUrn(urn);
+        return `ee-reference-${hash}`;
+      }
+    }
     if (!this.elementCounter[baseName]) {
       this.elementCounter[baseName] = 0;
     }
@@ -50538,7 +50564,7 @@ var EDSSerializer = class {
    */
   processCustomElement(element, parentId = null, slotName = null) {
     const tagName = element.tagName.toLowerCase();
-    const id = this.generateId(tagName);
+    const id = this.generateId(tagName, element);
     const table = {
       id,
       type: tagName
@@ -50548,6 +50574,13 @@ var EDSSerializer = class {
     }
     if (slotName) {
       table.slot = slotName;
+    }
+    if (tagName === "ee-reference") {
+      const urn = element.getAttribute("urn");
+      if (urn) {
+        const hash = hashUrn(urn);
+        table["data-reference"] = hash;
+      }
     }
     const styleVars = this.parseStyleVariables(element.getAttribute("style"));
     Object.assign(table, styleVars);
@@ -50752,12 +50785,33 @@ var EDSBlockDeserializer = class {
       const elementName = this.getElementName(block);
       if (elementName) {
         const nameLower = elementName.toLowerCase();
+        if (nameLower === "ee-reference") {
+          const dataRef = this.#getAttributeFromBlock(block, "data-reference");
+          if (dataRef) {
+            const blockId2 = `ee-reference-${dataRef}`;
+            this.#blockMap.set(blockId2, block);
+            continue;
+          }
+        }
         const count = (blockCounts.get(nameLower) || 0) + 1;
         blockCounts.set(nameLower, count);
         const blockId = `${nameLower}-${count}`;
         this.#blockMap.set(blockId, block);
       }
     }
+  }
+  /**
+   * Get an attribute value from a block div row
+   */
+  #getAttributeFromBlock(blockDiv, attrName) {
+    const rows = Array.from(blockDiv.children).filter((c33) => c33.tagName === "DIV");
+    for (const row of rows) {
+      const cells = Array.from(row.children).filter((c33) => c33.tagName === "DIV");
+      if (cells.length === 2 && cells[0].textContent.trim() === attrName) {
+        return cells[1].textContent.trim();
+      }
+    }
+    return null;
   }
   /**
    * Parse a block row to extract slot name and content
@@ -50804,7 +50858,7 @@ var EDSBlockDeserializer = class {
    */
   parseReferences(text) {
     const refs = [];
-    const matches3 = text.matchAll(/→\s*([a-z][a-z0-9-]*-\d+)/gi);
+    const matches3 = text.matchAll(/→\s*([a-z][a-z0-9-]*-[a-z0-9]+)/gi);
     for (const match of matches3) {
       refs.push(match[1].toLowerCase());
     }
@@ -50825,7 +50879,7 @@ var EDSBlockDeserializer = class {
    * Check if content is purely references (no other content)
    */
   isReferenceOnly(text) {
-    const withoutRefs = text.replace(/→\s*[a-z][a-z0-9-]*-\d+/gi, "").replace(/,/g, "").trim();
+    const withoutRefs = text.replace(/→\s*[a-z][a-z0-9-]*-[a-z0-9]+/gi, "").replace(/,/g, "").trim();
     return withoutRefs === "";
   }
   /**
@@ -51018,7 +51072,7 @@ var EDSBlockDeserializer = class {
     const referencedIds = /* @__PURE__ */ new Set();
     for (const block of blocks) {
       const text = block.textContent;
-      const matches3 = text.matchAll(/→\s*([a-z][a-z0-9-]*-\d+)/gi);
+      const matches3 = text.matchAll(/→\s*([a-z][a-z0-9-]*-[a-z0-9]+)/gi);
       for (const match of matches3) {
         referencedIds.add(match[1].toLowerCase());
       }
@@ -51073,12 +51127,33 @@ var EDSBlockDeserializer = class {
       const elementName = this.getElementNameFromTable(table);
       if (elementName) {
         const nameLower = elementName.toLowerCase();
+        if (nameLower === "ee-reference") {
+          const dataRef = this.#getAttributeFromTable(table, "data-reference");
+          if (dataRef) {
+            const tableId2 = `ee-reference-${dataRef}`;
+            this.#tableMap.set(tableId2, table);
+            continue;
+          }
+        }
         const count = (tableCounts.get(nameLower) || 0) + 1;
         tableCounts.set(nameLower, count);
         const tableId = `${nameLower}-${count}`;
         this.#tableMap.set(tableId, table);
       }
     }
+  }
+  /**
+   * Get an attribute value from a table row
+   */
+  #getAttributeFromTable(table, attrName) {
+    const rows = table.querySelectorAll("tr");
+    for (const row of rows) {
+      const cells = row.querySelectorAll("td");
+      if (cells.length === 2 && cells[0].textContent.trim() === attrName) {
+        return cells[1].textContent.trim();
+      }
+    }
+    return null;
   }
   /**
    * Extract element-name from a table
@@ -51203,7 +51278,7 @@ var EDSBlockDeserializer = class {
     const referencedIds = /* @__PURE__ */ new Set();
     for (const table of tables) {
       const text = table.textContent;
-      const matches3 = text.matchAll(/→\s*([a-z][a-z0-9-]*-\d+)/gi);
+      const matches3 = text.matchAll(/→\s*([a-z][a-z0-9-]*-[a-z0-9]+)/gi);
       for (const match of matches3) {
         referencedIds.add(match[1].toLowerCase());
       }
@@ -57525,11 +57600,11 @@ var Virtualizer = class {
   }
   async updateLayoutConfig(layoutConfig) {
     await this._layoutInitialized;
-    const Ctor4 = layoutConfig.type || // The new config is compatible with the current layout,
+    const Ctor = layoutConfig.type || // The new config is compatible with the current layout,
     // so we update the config and return true to indicate
     // a successful update
     DefaultLayoutConstructor;
-    if (typeof Ctor4 === "function" && this._layout instanceof Ctor4) {
+    if (typeof Ctor === "function" && this._layout instanceof Ctor) {
       const config = { ...layoutConfig };
       delete config.type;
       this._layout.config = config;
@@ -57539,19 +57614,19 @@ var Virtualizer = class {
   }
   async _initLayout(layoutConfig) {
     let config;
-    let Ctor4;
+    let Ctor;
     if (typeof layoutConfig.type === "function") {
-      Ctor4 = layoutConfig.type;
+      Ctor = layoutConfig.type;
       const copy2 = { ...layoutConfig };
       delete copy2.type;
       config = copy2;
     } else {
       config = layoutConfig;
     }
-    if (Ctor4 === void 0) {
-      DefaultLayoutConstructor = Ctor4 = (await Promise.resolve().then(() => (init_flow(), flow_exports))).FlowLayout;
+    if (Ctor === void 0) {
+      DefaultLayoutConstructor = Ctor = (await Promise.resolve().then(() => (init_flow(), flow_exports))).FlowLayout;
     }
-    this._layout = new Ctor4((message) => this._handleLayoutMessage(message), config);
+    this._layout = new Ctor((message) => this._handleLayoutMessage(message), config);
     if (this._layout.measureChildren && typeof this._layout.updateItemSizes === "function") {
       if (typeof this._layout.measureChildren === "function") {
         this._measureChildOverride = this._layout.measureChildren;
@@ -61262,12 +61337,12 @@ var PaywallContainer = class extends i4 {
     this.updateChildCards();
   }
   clearCSSVariables() {
-    const styles12 = this.style;
-    const cssText = styles12.cssText;
+    const styles9 = this.style;
+    const cssText = styles9.cssText;
     const varPattern = /--[\w-]+(?:-\d+)?-height/g;
     const matches3 = cssText.match(varPattern) || [];
     matches3.forEach((varName) => {
-      styles12.removeProperty(varName);
+      styles9.removeProperty(varName);
     });
   }
   updateChildCards() {
@@ -61735,143 +61810,14 @@ function updateRegionAccessibility({
   }
   return headingId;
 }
-function emitCreativeWorkJsonLd(host, options) {
-  if (!host) return;
-  const {
-    key,
-    type = "CreativeWork",
-    headingSlot = "heading",
-    descriptionSlots = [],
-    actionSlot = "actions",
-    priceSelector = "inline-price",
-    mediaSlot,
-    aboutSlot
-  } = options || {};
-  const nameOverride = options?.name;
-  const name = nameOverride || collectSlotText(host, headingSlot);
-  if (!name) {
-    setJsonLd(host, null, key);
-    return;
-  }
-  const descriptionOverride = options?.description;
-  const description = [descriptionSlots].flat(1).map((slot) => collectSlotText(host, slot)).filter(Boolean).join(" ").trim();
-  const finalDescription = [descriptionOverride, description].filter(Boolean).join(" ").trim();
-  const actions = actionSlot ? findActionCandidates(host, actionSlot).filter((action) => action.url).map((action) => ({
-    "@type": "Action",
-    name: action.label || action.url,
-    target: {
-      "@type": "EntryPoint",
-      urlTemplate: action.url
-    }
-  })) : [];
-  const primaryUrl = actions[0]?.target?.urlTemplate || "";
-  const priceEl = priceSelector ? host.querySelector(priceSelector) : null;
-  const offer = priceSelector ? buildOfferFromInlinePrice(priceEl, primaryUrl) : null;
-  const mediaNodes = mediaSlot ? getAssignedNodes(host, mediaSlot) : [];
-  const image = mediaSlot ? findFirstImageUrl(mediaNodes) : null;
-  const aboutName = aboutSlot ? collectSlotText(host, aboutSlot) : "";
-  const json = {
-    "@context": "https://schema.org",
-    "@type": type,
-    name,
-    ...finalDescription ? { description: finalDescription } : {},
-    ...image ? { image } : {},
-    ...actions.length ? { potentialAction: actions } : {},
-    ...offer ? { offers: offer } : {},
-    ...aboutName ? {
-      about: {
-        "@type": "Thing",
-        name: aboutName
-      }
-    } : {},
-    ...options?.url ? { url: options.url } : {}
-  };
-  if (options?.includeHeadline !== false && type === "CreativeWork") {
-    json.headline = name;
-  }
-  setJsonLd(host, json, key || type.toLowerCase());
-}
-function emitItemListJsonLd(host, key, items) {
-  if (!host) return;
-  const filtered = (items || []).filter((item) => item && item.name);
-  if (!filtered.length) {
-    setJsonLd(host, null, key);
-    return;
-  }
-  const json = {
-    "@context": "https://schema.org",
-    "@type": "ItemList",
-    itemListElement: filtered.map((item, index) => ({
-      "@type": "CreativeWork",
-      position: item.position ?? index + 1,
-      name: item.name,
-      ...item.description ? { description: item.description } : {},
-      ...item.url ? { url: item.url } : {}
-    }))
-  };
-  setJsonLd(host, json, key || "item-list");
-}
-function findFirstImageUrl(nodes2) {
-  for (const node of nodes2) {
-    if (node.nodeType !== Node.ELEMENT_NODE) continue;
-    if (node.tagName === "IMG" && node.getAttribute("src")) {
-      return node.getAttribute("src");
-    }
-    const img = node.querySelector("img[src]");
-    if (img) return img.getAttribute("src");
-  }
-  return null;
-}
-function getAssignedNodes(element, slotName) {
-  if (!element?.shadowRoot) return [];
-  const selector = slotName ? `slot[name="${slotName}"]` : "slot:not([name])";
-  const slot = element.shadowRoot.querySelector(selector);
-  if (!slot) return [];
-  return slot.assignedNodes({ flatten: true });
-}
-function findActionCandidates(element, slotName = "actions") {
-  const selector = slotName ? `[slot="${slotName}"]` : ":scope > *:not([slot])";
-  const nodes2 = Array.from(element.querySelectorAll(selector));
-  return nodes2.flatMap((node) => {
-    if (node.tagName === "CHECKOUT-BUTTON") {
-      const label = (node.textContent || "").replace(/\s+/g, " ").trim();
-      const url = node.getAttribute("href") || "";
-      return [{ label, url }];
-    }
-    if (node.tagName === "A") {
-      const label = (node.textContent || "").replace(/\s+/g, " ").trim();
-      const url = node.getAttribute("href") || "";
-      return [{ label, url }];
-    }
-    const links = Array.from(node.querySelectorAll("a[href]")).map((anchor) => ({
-      label: (anchor.textContent || "").replace(/\s+/g, " ").trim(),
-      url: anchor.getAttribute("href") || ""
-    }));
-    return links;
-  });
-}
-function buildOfferFromInlinePrice(priceEl, url) {
-  if (!priceEl) return null;
-  const price = priceEl.getAttribute("value");
-  if (!price) return null;
-  const currencyRaw = priceEl.getAttribute("currency") || "";
-  const currency = currencyRaw.replace(/[^\p{L}]/gu, "").toUpperCase() || "USD";
-  const offer = {
-    "@type": "Offer",
-    price,
-    priceCurrency: currency
-  };
-  if (url) offer.url = url;
-  return offer;
-}
 
 // src/utils/theme-helpers.js
-var VALID_THEMES = /* @__PURE__ */ new Set(["light", "dark"]);
+var VALID_THEMES = /* @__PURE__ */ new Set(["", "light", "dark"]);
 function normalizeTheme(theme) {
-  if (!theme || !VALID_THEMES.has(theme)) {
-    return void 0;
+  if (VALID_THEMES.has(theme)) {
+    return theme;
   }
-  return theme;
+  return "";
 }
 
 // src/custom-elements/acom/acom-faq.js
@@ -67176,6 +67122,16 @@ sheet2.replaceSync(`
 document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet2];
 
 // src/custom-elements/core/ee-reference.author.js
+function hashUrn2(urn) {
+  if (!urn) return null;
+  let hash = 0;
+  for (let i21 = 0; i21 < urn.length; i21++) {
+    const char = urn.charCodeAt(i21);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash).toString(36);
+}
 EeReference.ee = {
   getSchema(element) {
     const editor = document.querySelector("experience-elements-editor");
@@ -67266,6 +67222,16 @@ EeReference.ee = {
   toJson(el, serializeNode) {
     const schema2 = this.getSchema(el);
     return makeToJson(el, schema2, serializeNode);
+  },
+  sanitize(element) {
+    if (!element) return;
+    const urn = element.getAttribute("urn");
+    if (urn) {
+      const hash = hashUrn2(urn);
+      element.setAttribute("data-reference", hash);
+    } else {
+      element.removeAttribute("data-reference");
+    }
   }
 };
 document.addEventListener("ee-self-reference", (e36) => {
@@ -68085,7 +68051,7 @@ EeListItem.ee = {
         configs: {
           default: {
             label: "Primary Text",
-            description: "Main description for the list item.",
+            description: "Main description for the list item. Keep it short and concise.",
             inlineEditable: true,
             multiline: false,
             plain: false,
@@ -68151,6 +68117,7 @@ function register2({
     name: "Core Elements",
     description: "Foundational reference and media elements."
   });
+  registerElement2(LIBRARY_ID2, "sp-theme");
   registerElement2(LIBRARY_ID2, "ee-media");
   registerElement2(LIBRARY_ID2, "ee-reference");
   registerElement2(LIBRARY_ID2, "ee-content");
@@ -68163,898 +68130,6 @@ function register2({
     schema: spThemeSchemaApi
   });
 }
-
-// src/custom-elements/upw/subscribe-all-plans-store.js
-var SubscribeAllPlansStore = class {
-  static observableActions = [
-    "setOpen",
-    "setBillingTerm",
-    "setRegion",
-    "setOfferCodes",
-    "setHrefBase",
-    "setContinue"
-  ];
-  static computedProperties = ["isAnnual"];
-  open = false;
-  billingTerm = "monthly";
-  country = "US";
-  language = "en";
-  offerCodes = {};
-  // { [planId: string]: string }
-  ctaHrefBase = "";
-  selectedPlanId = "";
-  continuePending = false;
-  // Actions
-  setOpen(v6) {
-    this.open = !!v6;
-  }
-  setBillingTerm(term) {
-    const v6 = term === "annual" ? "annual" : "monthly";
-    this.billingTerm = v6;
-  }
-  setRegion(country, language) {
-    if (country) this.country = String(country).toUpperCase();
-    if (language) this.language = String(language).toLowerCase();
-  }
-  setOfferCodes(codes) {
-    this.offerCodes = codes && typeof codes === "object" ? { ...codes } : {};
-  }
-  setHrefBase(url) {
-    this.ctaHrefBase = String(url || "");
-  }
-  setContinue(planId) {
-    this.selectedPlanId = String(planId || "");
-    this.continuePending = true;
-  }
-  // Computed
-  get isAnnual() {
-    return this.billingTerm === "annual";
-  }
-};
-makeObservable(SubscribeAllPlansStore);
-var subscribeAllPlansStore = new SubscribeAllPlansStore();
-
-// src/custom-elements/upw/subscribe-all-plans-toggle.js
-init_lit();
-
-// src/custom-elements/upw/subscribe-all-plans-toggle.css.js
-init_lit();
-var styles2 = i`
-  :host {
-    display: block;
-  }
-  .row {
-    display: inline-flex;
-    gap: var(--spectrum-global-dimension-size-200);
-    align-items: center;
-  }
-`;
-
-// src/custom-elements/upw/subscribe-all-plans-toggle.js
-var SubscribeAllPlansToggle = class extends i4 {
-  static styles = [styles2];
-  static properties = {
-    term: { type: String, reflect: true }
-  };
-  constructor() {
-    super();
-    this.term = "monthly";
-  }
-  connectedCallback() {
-    super.connectedCallback();
-    const initial = (this.getAttribute("default-term") || this.term || "monthly").toLowerCase();
-    this.term = initial === "annual" ? "annual" : "monthly";
-  }
-  onChange = (e36) => {
-    const value = e36.target?.value === "annual" ? "annual" : "monthly";
-    this.term = value;
-    this.dispatchEvent(new CustomEvent("billing-term-change", {
-      detail: { term: this.term },
-      bubbles: true,
-      composed: true
-    }));
-  };
-  get selected() {
-    return this.term === "annual" ? "annual" : "monthly";
-  }
-  render() {
-    return x`
-      <div class="row" role="group" aria-label="Billing term">
-        <sp-radio-group value=${this.selected} @change=${this.onChange} emphasized>
-          <sp-radio value="monthly">Monthly</sp-radio>
-          <sp-radio value="annual">Annual</sp-radio>
-        </sp-radio-group>
-      </div>
-    `;
-  }
-};
-customElements.define("subscribe-all-plans-toggle", SubscribeAllPlansToggle);
-
-// src/custom-elements/upw/subscribe-all-plans-toggle.author.js
-var Ctor = customElements.get("subscribe-all-plans-toggle");
-Ctor.ee = {
-  getSchema() {
-    return {
-      schemaVersion: 1,
-      element: {
-        label: "Billing Toggle",
-        description: "Monthly/Annual selection control",
-        category: "commerce"
-      },
-      attributes: {
-        "default-term": {
-          type: "enum",
-          options: ["monthly", "annual"],
-          default: "monthly",
-          label: "Default Term",
-          description: "Initial billing term selection"
-        }
-      },
-      slots: { order: [], configs: {} }
-    };
-  },
-  create() {
-    const el = document.createElement("subscribe-all-plans-toggle");
-    el.setAttribute("default-term", "monthly");
-    return el;
-  },
-  sanitize(el) {
-    if (!el) return;
-    const t34 = (el.getAttribute("default-term") || "monthly").toLowerCase();
-    el.setAttribute("default-term", t34 === "annual" ? "annual" : "monthly");
-  },
-  toJson(el, serializeNode) {
-    const schema2 = this.getSchema(el);
-    return makeToJson(el, schema2, serializeNode);
-  }
-};
-
-// src/custom-elements/upw/subscribe-all-plans-type.js
-init_lit();
-
-// src/custom-elements/upw/subscribe-all-plans-type.css.js
-init_lit();
-var styles3 = i`
-  :host { 
-    display: block; 
-    border: 2px solid var(--spectrum-global-color-gray-300);
-    border-radius: var(--spectrum-global-dimension-size-100);
-    padding: var(--spectrum-global-dimension-size-300);
-    background: var(--spectrum-global-color-gray-50);
-  }
-
-  :host([data-term="annual"][data-selected="true"]) {
-    border-color: var(--spectrum-global-color-blue-400);
-    background: var(--spectrum-global-color-blue-50);
-  }
-
-  .row {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spectrum-global-dimension-size-200);
-    align-items: flex-start;
-  }
-
-  .head { 
-    display: flex; 
-    flex-direction: column;
-    gap: var(--spectrum-global-dimension-size-50);
-    width: 100%;
-  }
-  
-  .desc { 
-    color: var(--spectrum-alias-secondary-text-color); 
-    font-size: 14px;
-    line-height: 1.4;
-  }
-  
-  .prices { 
-    display: flex; 
-    gap: var(--spectrum-global-dimension-size-100); 
-    align-items: baseline;
-    margin: var(--spectrum-global-dimension-size-100) 0;
-  }
-  
-
-  /* Spacing tweaks for slotted elements */
-  ::slotted([slot="title"]) { 
-    font-weight: 700; 
-    font-size: 16px; 
-    line-height: 22px; 
-    margin: 0;
-  }
-  
-  ::slotted([slot="subtitle"]) { 
-    color: var(--spectrum-alias-secondary-text-color); 
-    font-size: 13px; 
-    line-height: 18px; 
-    margin: 0;
-  }
-  
-  ::slotted([slot="description"]) { 
-    font-size: 13px; 
-    line-height: 18px; 
-    margin: 0;
-  }
-  
-  ::slotted([slot="price"]) { 
-    font-size: 20px;
-    font-weight: 600;
-    line-height: 1.2;
-  }
-  
-  ::slotted([slot="annual-price"]) { 
-    font-size: 20px;
-    font-weight: 600;
-    line-height: 1.2;
-  }
-
-  /* Toggle price visibility based on term */
-  :host([data-term="monthly"]) ::slotted([slot="annual-price"]) { display: none !important; }
-  :host([data-term="annual"]) ::slotted([slot="price"]) { display: none !important; }
-`;
-
-// src/custom-elements/upw/subscribe-all-plans-type.js
-var SubscribeAllPlansType = class extends i4 {
-  static styles = [styles3];
-  static properties = {
-    planId: { type: String, attribute: "plan-id" },
-    analyticsId: { type: String, attribute: "analytics-id" },
-    term: { type: String, reflect: true }
-  };
-  constructor() {
-    super();
-    this.planId = "";
-    this.analyticsId = "";
-    this.term = "monthly";
-  }
-  connectedCallback() {
-    super.connectedCallback();
-    this.syncTermAttr();
-  }
-  updated() {
-    this.syncTermAttr();
-  }
-  syncTermAttr() {
-    const t34 = this.term === "annual" ? "annual" : "monthly";
-    this.setAttribute("data-term", t34);
-  }
-  render() {
-    return x`
-      <div class="row">
-        <div class="head">
-          <slot name="title" part="editor"></slot>
-          <slot name="subtitle" part="editor"></slot>
-        </div>
-        <div class="prices">
-          <slot name="price" part="editor"></slot>
-          <slot name="annual-price" part="editor"></slot>
-        </div>
-        <div class="desc"><slot name="description" part="editor"></slot></div>
-      </div>
-    `;
-  }
-};
-customElements.define("subscribe-all-plans-type", SubscribeAllPlansType);
-
-// src/custom-elements/upw/subscribe-all-plans-type.author.js
-var Ctor2 = customElements.get("subscribe-all-plans-type");
-Ctor2.ee = {
-  getSchema() {
-    return {
-      schemaVersion: 1,
-      element: {
-        label: "Subscribe Plan Type",
-        description: "A single subscription option with price(s) and CTA",
-        category: "commerce"
-      },
-      attributes: {
-        "plan-id": {
-          type: "text",
-          default: "",
-          label: "Plan ID",
-          description: "Plan identifier used for CTA link composition"
-        },
-        "analytics-id": {
-          type: "text",
-          default: "",
-          label: "Analytics ID",
-          description: "Optional analytics identifier"
-        }
-      },
-      slots: {
-        order: ["title", "subtitle", "description", "price", "annual-price", "cta"],
-        configs: {
-          title: {
-            label: "Title",
-            description: "Plan title",
-            maxLength: 100,
-            minLength: 1,
-            placeholder: "Plan title"
-          },
-          subtitle: {
-            label: "Subtitle",
-            description: "Optional subtitle",
-            maxLength: 100,
-            minLength: 0,
-            placeholder: "Subtitle"
-          },
-          description: {
-            label: "Description",
-            description: "Plan description text",
-            maxLength: null,
-            minLength: 0,
-            placeholder: "Describe key features"
-          },
-          price: {
-            label: "Monthly Price",
-            description: "Monthly price (inline-price element)",
-            maxLength: 1,
-            minLength: 1
-          },
-          "annual-price": {
-            label: "Annual Price",
-            description: "Annual price (inline-price element)",
-            maxLength: 1,
-            minLength: 0
-          },
-          cta: {
-            label: "CTA",
-            description: "Checkout button",
-            maxLength: 1,
-            minLength: 0
-          }
-        }
-      }
-    };
-  },
-  create() {
-    const el = document.createElement("subscribe-all-plans-type");
-    const price = document.createElement("inline-price");
-    price.setAttribute("slot", "price");
-    price.setAttribute("value", "9.99");
-    price.setAttribute("currency", "US$");
-    price.setAttribute("period", "mo");
-    el.appendChild(price);
-    const annual = document.createElement("inline-price");
-    annual.setAttribute("slot", "annual-price");
-    annual.setAttribute("value", "119.88");
-    annual.setAttribute("currency", "US$");
-    annual.setAttribute("period", "yr");
-    el.appendChild(annual);
-    const cta = document.createElement("checkout-button");
-    cta.setAttribute("slot", "cta");
-    cta.textContent = "Subscribe";
-    el.appendChild(cta);
-    return el;
-  },
-  sanitize(el) {
-    if (!el) return;
-    const pid = (el.getAttribute("plan-id") || "").trim();
-    if (pid) el.setAttribute("plan-id", pid);
-    else el.removeAttribute("plan-id");
-    const aid = (el.getAttribute("analytics-id") || "").trim();
-    if (aid) el.setAttribute("analytics-id", aid);
-    else el.removeAttribute("analytics-id");
-  },
-  toJson(el, serializeNode) {
-    const schema2 = this.getSchema(el);
-    return makeToJson(el, schema2, serializeNode);
-  }
-};
-
-// src/custom-elements/upw/subscribe-all-plans.js
-init_lit();
-
-// src/custom-elements/upw/subscribe-all-plans.css.js
-init_lit();
-var styles4 = i`
-  :host {
-    display: inline-block;
-    box-sizing: border-box;
-    color: var(--spectrum-alias-text-color);
-    /* Tune these to match pixel spec */
-    --sap-max-width: 1130px;
-    --sap-section-gap: var(--spectrum-global-dimension-size-300); /* ~24px */
-    --sap-plan-padding: var(--spectrum-global-dimension-size-300);
-    --sap-border-radius: var(--spectrum-global-dimension-size-75);
-    --sap-offers-width: 342px; /* right column width */
-    --sap-price-col: 280px;   /* price column width inside plan row */
-    --sap-cta-col: 200px;     /* CTA column width inside plan row */
-  }
-
-  /* Single Grid Layout (page + modal) */
-  .sap-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr var(--sap-offers-width);
-    grid-template-rows: auto auto auto auto auto auto auto;
-    grid-template-areas:
-      "header header header header"
-      "toggle toggle toggle offers"
-      "icons  icons  icons  offers"
-      "desc   desc   desc   offers"
-      "includes extras recommended offers"
-      ". . . continue"
-      "footer footer footer footer";
-    gap: var(--sap-section-gap);
-    align-items: start;
-    max-width: var(--sap-max-width);
-    margin-inline: auto;
-    margin-block: var(--spectrum-global-dimension-size-400);
-    padding-inline: var(--spectrum-global-dimension-size-300);
-    box-sizing: border-box;
-  }
-
-  /* Modal content uses same grid, without header/footer area inside content */
-  .sap-grid.sap-grid--modal {
-    grid-template-areas:
-      "toggle toggle toggle offers"
-      "icons  icons  icons  offers"
-      "desc   desc   desc   offers"
-      "includes extras recommended offers"
-      ". . . continue";
-    width: fit-content;
-    max-width: 100%;
-    margin-inline: 0;
-    margin-block: 0;
-    padding-inline: 0;
-  }
-
-  /* Grid area assignments */
-  #header { grid-area: header; display: grid; align-content: center; }
-  #toggle { grid-area: toggle; display: flex; justify-content: center; }
-  #icons { grid-area: icons; display: inline-flex; gap: var(--spectrum-global-dimension-size-100); align-items: center; }
-  #desc { grid-area: desc; color: var(--spectrum-alias-secondary-text-color); }
-  #includes { grid-area: includes; }
-  #extras { grid-area: extras; }
-  #recommended { grid-area: recommended; }
-  #offers { grid-area: offers; display: grid; gap: var(--spectrum-global-dimension-size-200); }
-  #continue { grid-area: continue; display: flex; justify-content: end; }
-  #footer { grid-area: footer; display: grid; justify-content: end; }
-
-  /* Minimum dimensions for slots */
-  slot {
-    display: block;
-    min-width: 128px;
-    min-height: 32px;
-  }
-
-  /* Header typography (author-provided heading) */
-  ::slotted([slot="header"]) { margin: 0; font-weight: 700; }
-  ::slotted(h2[slot="header"]) { font-size: 22px; line-height: 28px; }
-  ::slotted(h3[slot="header"]) { font-size: 18px; line-height: 24px; font-weight: 600; }
-
-  /* Section heading styles inside left meta areas */
-  #includes h3, #extras h3, #recommended h3 {
-    margin: 0 0 var(--spectrum-global-dimension-size-100) 0;
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--spectrum-alias-label-text-color);
-  }
-  #recommended ul { margin: 0; padding-left: 1.2em; }
-  #recommended li { list-style: disc; margin-block: 0.25em; }
-  #includes .items { display: grid; gap: var(--spectrum-global-dimension-size-100); }
-  #includes .item { display: inline-flex; align-items: center; gap: var(--spectrum-global-dimension-size-100); }
-
-  /* Continue section */
-  .continue-wrapper {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: var(--spectrum-global-dimension-size-100);
-  }
-  .stock-offer {
-    align-self: stretch;
-  }
-  .stock-offer ::slotted(*) {
-    display: inline-flex;
-    align-items: center;
-  }
-  .secure-text {
-    font-size: var(--spectrum-global-dimension-size-150);
-    color: var(--spectrum-alias-text-color);
-    display: flex;
-    align-items: center;
-    gap: var(--spectrum-global-dimension-size-75);
-  }
-
-  /* Style plan rows consistently when slotted */
-  ::slotted(subscribe-all-plans-type) {
-    border: 1px solid var(--spectrum-global-color-gray-300);
-    border-radius: var(--sap-border-radius);
-    padding: var(--sap-plan-padding);
-    background: var(--spectrum-global-color-gray-50);
-  }
-
-  /* Dialog sizing: let content define width; keep reasonable viewport max */
-  sp-dialog { max-width: calc(100vw - 64px); }
-  sp-divider { margin-block: var(--spectrum-global-dimension-size-150); }
-
-  /* Responsive */
-  @media (max-width: 920px) {
-  .sap-grid {
-      grid-template-columns: 1fr;
-      grid-template-areas:
-        "header"
-        "toggle"
-        "icons"
-        "desc"
-        "offers"
-        "includes"
-        "extras"
-        "recommended"
-        "continue"
-        "footer";
-    }
-    .sap-grid.sap-grid--modal {
-      grid-template-areas:
-        "toggle"
-        "icons"
-        "desc"
-        "offers"
-        "includes"
-        "extras"
-        "recommended"
-        "continue";
-    }
-    #footer { justify-content: start; }
-  }
-
-  /* Debug overlay removed per request */
-`;
-
-// src/custom-elements/upw/subscribe-all-plans.js
-var SubscribeAllPlans = class extends i4 {
-  static styles = [styles4];
-  static properties = {
-    open: { type: Boolean, reflect: true, converter: booleanConverter },
-    modal: { type: Boolean, reflect: true, converter: booleanConverter },
-    showAllThreshold: { type: Number, attribute: "show-all-threshold" }
-  };
-  constructor() {
-    super();
-    this.open = false;
-    this.modal = false;
-    this.showAllThreshold = void 0;
-  }
-  // If embedded under an ee-reference, prefer modal presentation
-  willUpdate(_changed) {
-    if (!this.modal) {
-      const inEeReference = typeof this.closest === "function" ? this.closest("ee-reference") : null;
-      if (inEeReference) this.modal = true;
-    }
-  }
-  connectedCallback() {
-    super.connectedCallback();
-    this.updateAria();
-    this.updateAppVisibility();
-    window.addEventListener("keydown", this.onKeyDown);
-    this.#initTermFromToggle();
-    this.addEventListener("billing-term-change", this.onBillingTermChange);
-    this.#syncModalWithContext();
-    const schedule = typeof requestAnimationFrame === "function" ? requestAnimationFrame : (cb) => setTimeout(cb, 0);
-    schedule(() => {
-      this.#syncModalWithContext();
-      if (this.modal && !this.open) this.open = true;
-    });
-  }
-  updated(changed) {
-    if (changed.has("modal")) this.updateAria();
-    if (changed.has("showAllThreshold")) this.updateAppVisibility();
-    this.updateAria();
-  }
-  updateAria() {
-    const header = this.querySelector('[slot="header"]');
-    let headingId = null;
-    if (header) {
-      headingId = ensureId(header, "sap-title");
-    }
-    if (!this.modal) {
-      this.setAttribute("role", "region");
-      this.removeAttribute("aria-modal");
-      if (headingId) {
-        this.setAttribute("aria-labelledby", headingId);
-        this.removeAttribute("aria-label");
-      } else {
-        this.setAttribute("aria-label", "Subscribe - All Plans");
-        this.removeAttribute("aria-labelledby");
-      }
-    } else {
-      this.removeAttribute("role");
-      this.removeAttribute("aria-modal");
-      this.removeAttribute("aria-labelledby");
-      this.removeAttribute("aria-label");
-    }
-  }
-  updateAppVisibility() {
-    const includes = this.querySelector('[slot="includes"]');
-    if (!includes) return;
-    const items = includes.querySelectorAll(".items .item");
-    const showAllLink = includes.querySelector('.items a[href="#"]');
-    if (this.showAllThreshold === void 0 || this.showAllThreshold === null || this.showAllThreshold <= 0) {
-      items.forEach((item) => item.style.display = "");
-      if (showAllLink) showAllLink.style.display = "none";
-    } else {
-      items.forEach((item, index) => {
-        if (index < this.showAllThreshold) {
-          item.style.display = "";
-        } else {
-          item.style.display = "none";
-        }
-      });
-      if (showAllLink) {
-        const totalApps = items.length;
-        showAllLink.textContent = `Show all ${totalApps}+ apps`;
-        showAllLink.style.display = "";
-      }
-    }
-  }
-  get isOpen() {
-    return !!this.open;
-  }
-  renderPage() {
-    return x`
-      <div class="sap-grid">
-        <slot id="header" name="header" part="editor"></slot>
-        <slot id="toggle" name="toggle" part="editor"></slot>
-        <slot id="icons" name="icons" part="editor"></slot>
-        <slot id="desc" name="description" part="editor"></slot>
-        <slot id="includes" name="includes" part="editor"></slot>
-        <slot id="extras" name="extras" part="editor"></slot>
-        <slot id="recommended" name="recommended" part="editor"></slot>
-        <slot id="offers" part="editor"></slot>
-
-        <div id="continue">
-          <div class="continue-wrapper">
-            <div class="stock-offer">
-              <slot name="stock-offer" part="editor">
-                <sp-checkbox id="stock-offer-checkbox">Include Adobe Stock (optional)</sp-checkbox>
-              </slot>
-            </div>
-            <span class="secure-text">🔒 Secure transaction</span>
-            <sp-button variant="accent" size="l" @click=${this.onContinue}>Continue</sp-button>
-          </div>
-        </div>
-
-        <slot id="footer" name="footer" part="editor"></slot>
-      </div>
-    `;
-  }
-  renderModal() {
-    return x`
-      <overlay-trigger
-        type="modal"
-        triggered-by="click"
-        receives-focus="auto"
-        .open=${this.isOpen ? "click" : void 0}
-        @sp-closed=${this.onOverlayClosed}
-      >
-        <sp-dialog-wrapper dismissable underlay slot="click-content" @close=${this.onOverlayClosed}>
-          <div slot="heading"><slot name="header" part="editor"></slot></div>
-          <div class="sap-grid sap-grid--modal">
-            <slot id="toggle" name="toggle" part="editor"></slot>
-            <slot id="icons" name="icons" part="editor"></slot>
-            <slot id="desc" name="description" part="editor"></slot>
-            <slot id="includes" name="includes" part="editor"></slot>
-            <slot id="extras" name="extras" part="editor"></slot>
-            <slot id="recommended" name="recommended" part="editor"></slot>
-            <slot id="offers" part="editor"></slot>
-
-            <div id="continue">
-              <div class="continue-wrapper">
-                <div class="stock-offer">
-                  <slot name="stock-offer" part="editor">
-                    <sp-checkbox id="stock-offer-checkbox">Include Adobe Stock (optional)</sp-checkbox>
-                  </slot>
-                </div>
-                <span class="secure-text">🔒 Secure transaction</span>
-                <sp-button variant="accent" size="l" @click=${this.onContinue}>Continue</sp-button>
-              </div>
-            </div>
-          </div>
-          <div slot="button"><slot name="footer" part="editor"></slot></div>
-        </sp-dialog-wrapper>
-      </overlay-trigger>
-    `;
-  }
-  onOverlayClosed = () => {
-    this.open = false;
-    this.remove();
-  };
-  onContinue = () => {
-    const selectedPlanId = this.#getSelectedPlanId();
-    this.dispatchEvent(new CustomEvent("subscribe-continue", {
-      detail: { planId: selectedPlanId },
-      bubbles: true,
-      composed: true
-    }));
-  };
-  #getSelectedPlanId() {
-    const selectedType = this.querySelector('subscribe-all-plans-type[data-selected="true"]');
-    return selectedType ? selectedType.getAttribute("plan-id") || "" : "";
-  }
-  disconnectedCallback() {
-    this.removeEventListener("billing-term-change", this.onBillingTermChange);
-    window.removeEventListener("keydown", this.onKeyDown);
-    super.disconnectedCallback();
-  }
-  onKeyDown = (e36) => {
-    if (this.modal && this.isOpen && (e36.key === "Escape" || e36.key === "Esc")) {
-      this.open = false;
-    }
-  };
-  render() {
-    return this.modal ? this.renderModal() : this.renderPage();
-  }
-  onBillingTermChange = (e36) => {
-    e36.stopPropagation();
-    const term = (e36.detail?.term || "").toLowerCase() === "annual" ? "annual" : "monthly";
-    this.#setTypesTerm(term);
-  };
-  #syncModalWithContext() {
-    if (!this.modal) {
-      const inEeReference = typeof this.closest === "function" ? this.closest("ee-reference") : null;
-      if (inEeReference) this.modal = true;
-    }
-  }
-  #initTermFromToggle() {
-    const toggle = this.querySelector("subscribe-all-plans-toggle");
-    let term = "monthly";
-    if (toggle) {
-      const tAttr = (toggle.getAttribute("term") || toggle.getAttribute("default-term") || "").toLowerCase();
-      if (tAttr === "annual") term = "annual";
-    }
-    this.#setTypesTerm(term);
-  }
-  #setTypesTerm(term) {
-    this.querySelectorAll("subscribe-all-plans-type").forEach((el) => {
-      el.term = term;
-    });
-  }
-};
-customElements.define("subscribe-all-plans", SubscribeAllPlans);
-
-// src/custom-elements/upw/subscribe-all-plans.author.js
-var Ctor3 = customElements.get("subscribe-all-plans");
-var textStyles = ["bold", "italic", "underline", "strikethrough"];
-var alignFormats = ["align-left", "align-center", "align-right"];
-Ctor3.ee = {
-  getSchema() {
-    return {
-      schemaVersion: 1,
-      element: {
-        label: "Subscribe All Plans",
-        description: "Container for subscription options with optional modal presentation"
-      },
-      attributes: {
-        "data-modal": {
-          type: "boolean",
-          default: false,
-          label: "Render as modal",
-          description: "When enabled, persists with modal attribute. Editor always shows page layout."
-        }
-      },
-      slots: {
-        order: [
-          "header",
-          "icons",
-          "description",
-          "includes",
-          "extras",
-          "recommended",
-          "toggle",
-          "default",
-          "footer"
-        ],
-        configs: {
-          header: {
-            label: "Header",
-            description: "Heading content for the subscribe container",
-            maxLength: 100,
-            minLength: 1,
-            placeholder: "Subscribe"
-          },
-          icons: {
-            label: "Product Icons",
-            description: "Product icon(s) to display",
-            maxLength: null,
-            minLength: 1
-          },
-          description: {
-            inlineEditable: true,
-            label: "Product Description",
-            description: "Short description text under the header",
-            placeholder: "Describe the bundle",
-            multiline: true,
-            allowedStyles: [...textStyles],
-            allowedFormats: [...alignFormats],
-            allowLinks: true
-          },
-          includes: {
-            label: "Includes",
-            description: "Included apps or items",
-            maxLength: null,
-            minLength: 1
-          },
-          extras: {
-            label: "Extras",
-            description: "Extra benefits/features list",
-            maxLength: 1,
-            minLength: 1
-          },
-          recommended: {
-            label: "Recommended For",
-            description: "Audience list (bulleted or text)",
-            placeholder: "Photo, Graphic design, ..."
-          },
-          toggle: {
-            label: "Billing Toggle",
-            description: "Monthly/Annual toggle",
-            maxLength: 1,
-            minLength: 1
-          },
-          default: {
-            label: "Plans",
-            description: "Plan rows",
-            maxLength: 3,
-            minLength: 1
-          },
-          footer: {
-            label: "Footer",
-            description: "Optional action or note",
-            maxLength: 1,
-            minLength: 0
-          }
-        }
-      }
-    };
-  },
-  // Create a default instance hierarchy
-  create() {
-    const root = document.createElement("subscribe-all-plans");
-    const toggle = document.createElement("subscribe-all-plans-toggle");
-    toggle.setAttribute("slot", "toggle");
-    toggle.setAttribute("default-term", "monthly");
-    root.appendChild(toggle);
-    const plan = document.createElement("subscribe-all-plans-type");
-    const title = document.createElement("span");
-    title.setAttribute("slot", "title");
-    title.textContent = "Individual Plan";
-    plan.appendChild(title);
-    const price = document.createElement("inline-price");
-    price.setAttribute("slot", "price");
-    price.setAttribute("value", "19.99");
-    price.setAttribute("currency", "US$");
-    price.setAttribute("period", "mo");
-    plan.appendChild(price);
-    const annual = document.createElement("inline-price");
-    annual.setAttribute("slot", "annual-price");
-    annual.setAttribute("value", "239.88");
-    annual.setAttribute("currency", "US$");
-    annual.setAttribute("period", "yr");
-    plan.appendChild(annual);
-    root.appendChild(plan);
-    return root;
-  },
-  sanitize(el) {
-    if (!el) return;
-    const flag = el.hasAttribute("data-modal");
-    if (flag) el.setAttribute("modal", "");
-    else el.removeAttribute("modal");
-    el.removeAttribute("data-modal");
-  },
-  toJson(el, serializeNode) {
-    const schema2 = this.getSchema(el);
-    const result = makeToJson(el, schema2, serializeNode);
-    const modalFlag = el.hasAttribute("data-modal") || el.hasAttribute("modal");
-    if (modalFlag) result.attributes["modal"] = true;
-    const threshold = el.getAttribute("show-all-threshold");
-    if (threshold !== null && threshold !== "" && Number(threshold) > 0) {
-      result.attributes["show-all-threshold"] = Number(threshold);
-    }
-    return result;
-  }
-};
 
 // src/custom-elements/upw/paywall-card.author.js
 var TEXT_STYLES2 = ["bold", "italic", "underline", "strikethrough"];
@@ -69434,7 +68509,7 @@ function register3({
 }
 
 // src/custom-elements/merch-card/merch-badge.css.js
-var styles5 = `
+var styles2 = `
   *, *::before, *::after {
     box-sizing: border-box;
   }
@@ -69466,7 +68541,7 @@ var styles5 = `
   }
 `;
 var merchBadgeStyleSheet = new CSSStyleSheet();
-merchBadgeStyleSheet.replaceSync(styles5);
+merchBadgeStyleSheet.replaceSync(styles2);
 
 // src/custom-elements/merch-card/merch-badge.js
 var MerchBadge = class extends HTMLElement {
@@ -69556,7 +68631,7 @@ init_lit();
 
 // src/custom-elements/merch-card/merch-callout.css.js
 init_lit();
-var styles6 = i`
+var styles3 = i`
   *, *::before, *::after {
     box-sizing: border-box;
   }
@@ -69620,7 +68695,7 @@ var MerchCallout = class extends i4 {
     return { ...iconTransformProperties };
   }
   static get styles() {
-    return [styles6];
+    return [styles3];
   }
   constructor() {
     super();
@@ -69659,8 +68734,8 @@ var MerchCallout = class extends i4 {
 customElements.define("merch-callout", MerchCallout);
 
 // src/custom-elements/merch-card/merch-callout.author.js
-var textStyles2 = ["bold", "italic", "underline", "strikethrough"];
-var alignFormats2 = ["align-left", "align-center", "align-right"];
+var textStyles = ["bold", "italic", "underline", "strikethrough"];
+var alignFormats = ["align-left", "align-center", "align-right"];
 MerchCallout.ee = {
   getSchema() {
     return {
@@ -69691,8 +68766,8 @@ MerchCallout.ee = {
             inlineEditable: true,
             multiline: false,
             allowLinks: true,
-            allowedStyles: [...textStyles2],
-            allowedFormats: [...alignFormats2]
+            allowedStyles: [...textStyles],
+            allowedFormats: [...alignFormats]
           }
         }
       }
@@ -69732,7 +68807,7 @@ init_lit();
 
 // src/custom-elements/merch-card/merch-card-compare.css.js
 init_lit();
-var styles7 = i`
+var styles4 = i`
   *,
   *::before,
   *::after {
@@ -69936,7 +69011,7 @@ var cardObserver = new IntersectionObserver((entries) => {
   // Start rendering 50px before entering viewport
 });
 var MerchCardCompare = class extends i4 {
-  static styles = [styles7];
+  static styles = [styles4];
   static properties = {
     variant: { type: String }
   };
@@ -70057,9 +69132,9 @@ var MerchCardCompare = class extends i4 {
         let slotHeight = 0;
         nodes2.forEach((node) => {
           if (node.nodeType === Node.ELEMENT_NODE) {
-            const styles12 = window.getComputedStyle(node);
-            const marginTop = parseFloat(styles12.marginTop) || 0;
-            const marginBottom = parseFloat(styles12.marginBottom) || 0;
+            const styles9 = window.getComputedStyle(node);
+            const marginTop = parseFloat(styles9.marginTop) || 0;
+            const marginBottom = parseFloat(styles9.marginBottom) || 0;
             const totalHeight = node.offsetHeight + marginTop + marginBottom;
             slotHeight = Math.max(slotHeight, totalHeight);
             if (slotName === "footer-list" && node.tagName === "MERCH-LIST") {
@@ -70203,8 +69278,8 @@ customElements.define("merch-card-compare", MerchCardCompare);
 // src/custom-elements/merch-card/merch-card-compare.author.js
 MerchCardCompare.ee = {
   getSchema() {
-    const textStyles5 = ["bold", "italic", "underline", "strikethrough"];
-    const alignFormats5 = ["align-left", "align-center", "align-right"];
+    const textStyles4 = ["bold", "italic", "underline", "strikethrough"];
+    const alignFormats4 = ["align-left", "align-center", "align-right"];
     const listFormats2 = ["unordered-list", "ordered-list"];
     const slotConfigs = {
       badge: {
@@ -70224,7 +69299,7 @@ MerchCardCompare.ee = {
         placeholder: "Add mnemonics"
       },
       "heading-xs": {
-        allowedFormats: [...alignFormats5],
+        allowedFormats: [...alignFormats4],
         allowedStyles: ["bold", "italic", "underline"],
         allowLinks: false,
         description: "Main heading for the card",
@@ -70284,8 +69359,8 @@ MerchCardCompare.ee = {
         description: "Main body text with rich formatting support",
         placeholder: "Enter description",
         inlineEditable: true,
-        allowedStyles: [...textStyles5],
-        allowedFormats: [...alignFormats5, ...listFormats2],
+        allowedStyles: [...textStyles4],
+        allowedFormats: [...alignFormats4, ...listFormats2],
         allowLinks: true,
         multiline: true
       },
@@ -70370,7 +69445,7 @@ init_lit();
 
 // src/custom-elements/merch-card/merch-cards-compare.css.js
 init_lit();
-var styles8 = i`
+var styles5 = i`
   *,
   *::before,
   *::after {
@@ -70417,7 +69492,7 @@ var styles8 = i`
 
 // src/custom-elements/merch-card/merch-cards-compare.js
 var MerchCardsCompare = class extends i4 {
-  static styles = [styles8];
+  static styles = [styles5];
   static properties = {
     resizing: { type: String, reflect: true }
   };
@@ -70438,12 +69513,12 @@ var MerchCardsCompare = class extends i4 {
     this.updateGridColumnCount();
   }
   clearCSSVariables() {
-    const styles12 = this.style;
-    const cssText = styles12.cssText;
+    const styles9 = this.style;
+    const cssText = styles9.cssText;
     const varPattern = /--[\w-]+(?:-\d+)?-height/g;
     const matches3 = cssText.match(varPattern) || [];
     matches3.forEach((varName) => {
-      styles12.removeProperty(varName);
+      styles9.removeProperty(varName);
     });
   }
   updateChildCards() {
@@ -70565,7 +69640,7 @@ init_lit();
 
 // src/custom-elements/merch-card/merch-list-item.css.js
 init_lit();
-var styles9 = i`
+var styles6 = i`
   *, *::before, *::after {
     box-sizing: border-box;
   }
@@ -70637,7 +69712,7 @@ var styles9 = i`
 
 // src/custom-elements/merch-card/merch-list-item.js
 var MerchListItem = class extends i4 {
-  static styles = [styles9];
+  static styles = [styles6];
   static properties = {
     name: { type: String, attribute: "name", reflect: true },
     size: { type: String, attribute: "size", reflect: true },
@@ -70714,7 +69789,7 @@ customElements.define("merch-list-item", MerchListItem);
 // src/custom-elements/merch-card/merch-list-item.author.js
 MerchListItem.ee = {
   getSchema() {
-    const textStyles5 = ["bold", "italic", "underline", "strikethrough"];
+    const textStyles4 = ["bold", "italic", "underline", "strikethrough"];
     return {
       schemaVersion: 1,
       element: {
@@ -70743,7 +69818,7 @@ MerchListItem.ee = {
             inlineEditable: true,
             multiline: false,
             placeholder: "List item",
-            allowedStyles: [...textStyles5],
+            allowedStyles: [...textStyles4],
             allowedFormats: [],
             allowLinks: true
           }
@@ -70775,7 +69850,7 @@ init_lit();
 
 // src/custom-elements/merch-card/merch-list.css.js
 init_lit();
-var styles10 = i`
+var styles7 = i`
   *, *::before, *::after {
     box-sizing: border-box;
   }
@@ -70825,7 +69900,7 @@ var styles10 = i`
 
 // src/custom-elements/merch-card/merch-list.js
 var MerchList = class extends i4 {
-  static styles = [styles10];
+  static styles = [styles7];
   static properties = { ...iconTransformProperties };
   constructor() {
     super();
@@ -70872,8 +69947,8 @@ var MerchList = class extends i4 {
 customElements.define("merch-list", MerchList);
 
 // src/custom-elements/merch-card/merch-list.author.js
-var textStyles3 = ["bold", "italic", "underline", "strikethrough"];
-var alignFormats3 = ["align-left", "align-center", "align-right"];
+var textStyles2 = ["bold", "italic", "underline", "strikethrough"];
+var alignFormats2 = ["align-left", "align-center", "align-right"];
 MerchList.ee = {
   getSchema() {
     return {
@@ -70904,8 +69979,8 @@ MerchList.ee = {
             description: "Short label/title for the list",
             inlineEditable: true,
             multiline: false,
-            allowedStyles: [...textStyles3],
-            allowedFormats: [...alignFormats3],
+            allowedStyles: [...textStyles2],
+            allowedFormats: [...alignFormats2],
             allowLinks: false,
             placeholder: "Add list label"
           },
@@ -70960,7 +70035,7 @@ init_lit();
 
 // src/custom-elements/merch-card/merch-mnemonic.css.js
 init_lit();
-var styles11 = i`
+var styles8 = i`
   :host {
     display: inline-block;
   }
@@ -71223,7 +70298,7 @@ var PRODUCT_MAP = {
 };
 var MerchMnemonic = class extends i4 {
   static get styles() {
-    return [styles11];
+    return [styles8];
   }
   static get properties() {
     return {
@@ -71696,642 +70771,6 @@ function register4({
   ].forEach((tag3) => registerElement2(LIBRARY_ID4, tag3));
 }
 
-// src/custom-elements/acom/acom-hero-marquee.js
-init_lit();
-
-// src/custom-elements/acom/acom-hero-marquee.css.js
-init_lit();
-var acomHeroMarqueeStyleSheet = i`
-  :host {
-    display: flex;
-    flex-direction: column;
-    box-sizing: border-box;
-    position: relative;
-    overflow: hidden;
-    width: 100%;
-    padding: 56px 4px;
-    gap: var(--spectrum-global-dimension-size-600);
-    background: var(--acom-hero-marquee-background, transparent);
-  }
-
-  sp-theme {
-    display: contents;
-  }
-
-  .background {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    z-index: -1;
-  }
-
-  .background-layer {
-    position: absolute;
-    inset: 0;
-    display: none;
-  }
-
-  .background-layer--default {
-    display: block;
-  }
-
-  .background-layer::slotted(*) {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  :host(:not([data-has-background])) .background {
-    display: none;
-  }
-
-  @media (max-width: 599px) {
-    :host([data-has-background-mobile]) .background-layer--default {
-      display: none;
-    }
-
-    :host([data-has-background-mobile]) .background-layer--mobile {
-      display: block;
-    }
-  }
-
-  @media (min-width: 600px) and (max-width: 1023px) {
-    :host([data-has-background-tablet]) .background-layer--default {
-      display: none;
-    }
-
-    :host([data-has-background-tablet]) .background-layer--tablet {
-      display: block;
-    }
-  }
-
-  .copy {
-    display: flex;
-    flex-direction: column;
-    max-width: 36rem;
-    position: relative;
-    flex: 1;
-
-  }
-
-  .lockup {
-    display: inline-flex;
-    gap: var(--spectrum-global-dimension-size-200);
-    align-items: center;
-    flex-wrap: wrap;
-    margin-bottom: var(--spectrum-global-dimension-size-150);
-  }
-
-  slot[name='lockup']::slotted(merch-mnemonic) {
-    display: block;
-    width: var(--spectrum-global-dimension-size-600);
-    height: var(--spectrum-global-dimension-size-600);
-  }
-
-  slot[name='lockup-label']::slotted(*) {
-    margin: 0;
-    font-size: var(--spectrum-body-l-font-size, 1.125rem);
-    font-weight: 700;
-    line-height: var(--spectrum-body-l-line-height, 1.5);
-    color: var(--spectrum-body-color);
-  }
-
-  slot[name='heading']::slotted(*) {
-    margin: 0;
-    font-size: var(--spectrum-heading-xxl-font-size, 2.75rem);
-    line-height: var(--spectrum-heading-xxl-line-height, 1.25);
-    font-weight: 800;
-    letter-spacing: -0.01em;
-    margin-bottom: var(--spectrum-global-dimension-size-300);
-    color: var(--spectrum-body-color);
-  }
-
-  slot[name='body'],
-  slot:not([name]) {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spectrum-global-dimension-size-200);
-    font-size: var(--spectrum-body-l-font-size, 1.125rem);
-    line-height: var(--spectrum-body-l-line-height, 1.5);
-    font-weight: 400;
-    margin-bottom: var(--spectrum-global-dimension-size-250);
-    color: var(--spectrum-body-color);
-  }
-
-  slot[name='body']::slotted(*),
-  slot:not([name])::slotted(*) {
-    margin: 0;
-  }
-
-  slot[name='actions'] {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spectrum-global-dimension-size-300);
-    align-items: flex-start;
-    margin-bottom: var(--spectrum-global-dimension-size-300);
-  }
-
-  @media (min-width: 600px) {
-    slot[name='actions'] {
-      flex-direction: row;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: flex-start;
-      gap: 12px;
-    }
-
-    slot[name='actions']::slotted(*) {
-      flex: 0 0 auto;
-    }
-
-    slot[name='actions']::slotted(sp-button),
-    slot[name='actions']::slotted(checkout-button) {
-      --mod-button-border-radius: 25px;
-      --mod-button-font-size: 19px;
-      --mod-button-font-weight: 700;
-      --mod-button-line-height: 24px;
-      --mod-button-spacing-label-to-edge-default: 24px;
-      --mod-button-min-height: 44px;
-    }
-  }
-
-  slot[name='supporting'] {
-    display: block;
-    font-size: var(--spectrum-body-s-font-size, 0.875rem);
-    line-height: var(--spectrum-body-s-line-height, 1.5);
-    color: var(--spectrum-body-color);
-  }
-
-  slot[name='supporting']::slotted(*) {
-    margin: 0;
-  }
-
-  .media {
-    position: relative;
-    border-radius: var(--spectrum-global-dimension-size-200);
-    overflow: hidden;
-    isolation: isolate;
-    flex: 1;
-    align-self: stretch;
-    display: flex;
-  }
-
-  .media slot[name='media'] {
-    display: block;
-    height: 100%;
-    width: 100%;
-  }
-
-  /* When using ee-media, it handles its own aspect ratio and padding */
-  .media slot[name='media']::slotted(ee-media) {
-    width: 100%;
-    height: 100%;
-    display: block;
-    --ee-media-radius: var(--spectrum-global-dimension-size-200);
-  }
-
-  /* Fallback for other media types */
-  .media:not(:has(ee-media))::before {
-    content: '';
-    display: block;
-    padding-bottom: 56.25%;
-  }
-
-  .media slot[name='media']::slotted(*:not(ee-media)) {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  @media (min-width: 900px) {
-    :host {
-      flex-direction: row;
-      align-items: center;
-      justify-content: center;
-      gap: var(--spectrum-global-dimension-size-800);
-    }
-
-    .copy {
-      flex: 1;
-      max-width: 550px;
-    }
-
-    .media {
-      flex: 1;
-      max-width: 600px;
-    }
-
-    slot[name='heading']::slotted(*) {
-      font-size: var(--spectrum-heading-xxxl-font-size, 3.5rem);
-      line-height: var(--spectrum-heading-xxxl-line-height, 1.15);
-    }
-
-    :host([media-align='left']) .copy {
-      order: 2;
-    }
-
-    :host([media-align='left']) .media {
-      order: 1;
-    }
-
-    :host([media-align='right']) .copy {
-      order: 1;
-    }
-
-    :host([media-align='right']) .media {
-      order: 2;
-    }
-  }
-`;
-
-// src/custom-elements/acom/acom-hero-marquee.js
-var DEFAULT_BACKGROUND = "transparent";
-var AcomHeroMarquee = class extends i4 {
-  static styles = [acomHeroMarqueeStyleSheet];
-  static properties = {
-    theme: { type: String, reflect: true },
-    mediaAlign: { type: String, attribute: "media-align", reflect: true },
-    backgroundColor: { type: String, attribute: "background-color" },
-    padding: { type: String },
-    mediaAspect: { type: String, attribute: "media-aspect" },
-    mediaRadius: { type: String, attribute: "media-radius" },
-    scale: { type: String, reflect: true }
-  };
-  #slotObservers;
-  #sectionLabelId;
-  constructor() {
-    super();
-    this.theme = "";
-    this.mediaAlign = "right";
-    this.backgroundColor = DEFAULT_BACKGROUND;
-    this.mediaRadius = "var(--spectrum-global-dimension-size-200)";
-    this.scale = "";
-    this.#slotObservers = [];
-    this.#sectionLabelId = null;
-    ensureId(this, "acom-hero-marquee");
-  }
-  connectedCallback() {
-    super.connectedCallback();
-    if (!this.scale) {
-      this.scale = this.closest("sp-theme")?.getAttribute("scale") || document.querySelector("sp-theme")?.getAttribute("scale") || "medium";
-    }
-  }
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    disconnectSlotObservers(this.#slotObservers);
-  }
-  firstUpdated() {
-    const watchedSlots = [
-      "lockup",
-      "lockup-label",
-      "heading",
-      "body",
-      "",
-      "actions",
-      "supporting",
-      "media",
-      "background",
-      "background-mobile",
-      "background-tablet"
-    ];
-    this.#slotObservers = observeSlots(this, watchedSlots, () => {
-      this.#syncBackgroundFlags();
-      this.#updateAccessibility();
-    });
-    this.#syncBackgroundFlags();
-    this.#updateAccessibility();
-  }
-  updated(changed) {
-    if (changed.has("theme")) {
-      this.#normalizeTheme();
-    }
-    if (changed.has("mediaAlign")) {
-      this.#normalizeMediaAlign();
-    }
-    this.#syncBackgroundFlags();
-    this.#updateAccessibility();
-    this.#syncHostStyles();
-  }
-  render() {
-    const hasLockup = this.#hasSlot("lockup") || this.#hasSlot("lockup-label");
-    const lockupTemplate = hasLockup ? x`
-          <div class="lockup" id="${this.id}-lockup">
-            <slot name="lockup"></slot>
-            <slot name="lockup-label"></slot>
-          </div>
-        ` : E;
-    const marqueeContent = x`
-      ${this.#renderBackgroundLayers() || E}
-      <div class="copy" id="${this.id}-copy">
-        ${lockupTemplate}
-        <slot name="heading"></slot>
-        <slot></slot>
-        <slot name="body"></slot>
-        <slot name="actions"></slot>
-        <slot name="supporting"></slot>
-      </div>
-      <div class="media" id="${this.id}-media">
-        <slot name="media"></slot>
-      </div>
-    `;
-    if (this.theme === "dark" || this.theme === "light") {
-      return x`
-        <sp-theme color="${this.theme}" scale="${this.scale}" system="spectrum-two">
-          ${marqueeContent}
-        </sp-theme>
-      `;
-    }
-    return marqueeContent;
-  }
-  #syncHostStyles() {
-    const backgroundValue = normalizeBackgroundValue(
-      this.backgroundColor,
-      DEFAULT_BACKGROUND
-    );
-    this.style.setProperty("--acom-hero-marquee-background", backgroundValue || "");
-  }
-  #normalizeTheme() {
-    this.theme = normalizeTheme(this.theme);
-  }
-  #normalizeMediaAlign() {
-    if (this.mediaAlign !== "left" && this.mediaAlign !== "right") {
-      this.mediaAlign = "right";
-    }
-  }
-  #renderBackgroundLayers() {
-    const layers = [
-      { slot: "background", className: "default" },
-      { slot: "background-mobile", className: "mobile" },
-      { slot: "background-tablet", className: "tablet" }
-    ];
-    const active = layers.filter((layer) => this.#hasSlot(layer.slot));
-    if (!active.length) {
-      return null;
-    }
-    return x`
-      <div class="background" aria-hidden="true">
-        ${active.map(
-      (layer) => x`
-            <slot name=${layer.slot} class="background-layer background-layer--${layer.className}"></slot>
-          `
-    )}
-      </div>
-    `;
-  }
-  #hasSlot(name) {
-    if (name) {
-      return this.querySelector(`[slot="${name}"]`) !== null;
-    }
-    return Array.from(this.childNodes).some(
-      (node) => node.nodeType === Node.ELEMENT_NODE && !node.hasAttribute("slot")
-    );
-  }
-  #syncBackgroundFlags() {
-    const hasDefault = this.#hasSlot("background");
-    const hasMobile = this.#hasSlot("background-mobile");
-    const hasTablet = this.#hasSlot("background-tablet");
-    const hasAny = hasDefault || hasMobile || hasTablet;
-    this.toggleAttribute("data-has-background", hasAny);
-    this.toggleAttribute("data-has-background-mobile", hasMobile);
-    this.toggleAttribute("data-has-background-tablet", hasTablet);
-  }
-  #updateAccessibility() {
-    this.#sectionLabelId = updateRegionAccessibility({
-      host: this,
-      container: this,
-      headingSlot: "heading",
-      fallbackLabel: "Featured hero section",
-      idPrefix: `${this.id}-heading`
-    });
-  }
-};
-customElements.define("acom-hero-marquee", AcomHeroMarquee);
-
-// src/custom-elements/acom/acom-hero-marquee.author.js
-var HERO_MARQUEE_SLOTS = /* @__PURE__ */ new Set([
-  "",
-  "lockup",
-  "lockup-label",
-  "heading",
-  "body",
-  "actions",
-  "supporting",
-  "media",
-  "background",
-  "background-mobile",
-  "background-tablet"
-]);
-var TEXT_STYLES4 = ["bold", "italic", "underline"];
-var TEXT_FORMATS = ["align-left", "align-center", "align-right", "unordered-list", "ordered-list"];
-AcomHeroMarquee.ee = {
-  getElementIcon(html) {
-    return html`<sp-icon-app slot="icon"></sp-icon-app>`;
-  },
-  getSchema() {
-    return {
-      schemaVersion: 1,
-      element: {
-        label: "ACOM Hero Marquee",
-        description: "Primary hero with product lockup, heavy headline, and managed media integration.",
-        category: "hero",
-        allowBlank: true
-      },
-      attributes: {
-        theme: {
-          type: "enum",
-          options: ["", "light", "dark"],
-          default: "",
-          label: "Theme",
-          description: "Switch text treatment for light or dark backgrounds.",
-          allowEmpty: true
-        },
-        "media-align": {
-          type: "enum",
-          options: ["left", "right"],
-          default: "right",
-          label: "Media Alignment",
-          description: "Side for media on desktop (Split 50/50)."
-        },
-        "background-color": makeSWCColorSchema({
-          label: "Background Fill",
-          description: "Solid color or gradient behind the marquee.",
-          attr: "background-color",
-          allowGradient: true
-        }),
-        padding: {
-          type: "text",
-          default: "var(--spectrum-global-dimension-size-900) var(--spectrum-global-dimension-size-500)",
-          label: "Wrapper Padding",
-          description: "Supports Spectrum tokens or CSS values."
-        },
-        "media-aspect": {
-          type: "text",
-          default: "16:9",
-          label: "Custom Aspect Ratio",
-          description: "Used only if not using ee-media (e.g., 16:9 or 56.25%)."
-        },
-        "media-radius": {
-          type: "text",
-          default: "var(--spectrum-global-dimension-size-200)",
-          label: "Media Corners",
-          description: "Border radius for the media area."
-        }
-      },
-      slots: {
-        order: [
-          "lockup",
-          "lockup-label",
-          "heading",
-          "body",
-          "",
-          "actions",
-          "supporting",
-          "media",
-          "background",
-          "background-mobile",
-          "background-tablet"
-        ],
-        configs: {
-          lockup: {
-            label: "Product Icon",
-            description: "Use merch-mnemonic for product branding.",
-            minLength: 0,
-            maxLength: 1,
-            allowedTags: ["merch-mnemonic"]
-          },
-          "lockup-label": {
-            label: "Product Name",
-            description: "Label appearing next to the product icon.",
-            minLength: 0,
-            maxLength: 1,
-            inlineEditable: true,
-            allowedStyles: [...TEXT_STYLES4],
-            placeholder: "e.g. Photoshop"
-          },
-          heading: {
-            label: "Marquee Headline",
-            description: "Bold 44px headline.",
-            minLength: 1,
-            maxLength: 1,
-            inlineEditable: true,
-            allowedStyles: [...TEXT_STYLES4],
-            placeholder: "Enter headline",
-            tag: "h1"
-          },
-          body: {
-            label: "Intro Description",
-            description: "Primary supporting narrative (20px).",
-            minLength: 0,
-            maxLength: null,
-            inlineEditable: true,
-            multiline: true,
-            allowedStyles: [...TEXT_STYLES4],
-            allowedFormats: [...TEXT_FORMATS],
-            allowLinks: true,
-            linkRequired: false,
-            placeholder: "Add intro description"
-          },
-          "": {
-            label: "Extra Content",
-            description: "Additional paragraphs before CTAs.",
-            minLength: 0,
-            maxLength: null,
-            inlineEditable: true,
-            multiline: true,
-            allowedStyles: [...TEXT_STYLES4],
-            allowedFormats: [...TEXT_FORMATS],
-            allowLinks: true,
-            placeholder: "Add extra content if needed"
-          },
-          actions: {
-            label: "Primary Actions",
-            description: "Buy now and Free trial buttons.",
-            minLength: 0,
-            allowedTags: ["checkout-button", "sp-button"],
-            allowPaste: true,
-            maxLength: 2
-          },
-          supporting: {
-            label: "Secondary Links",
-            description: "Footnote or supplemental business links.",
-            minLength: 0,
-            maxLength: null,
-            inlineEditable: true,
-            multiline: true,
-            allowedStyles: [...TEXT_STYLES4],
-            allowedFormats: [...TEXT_FORMATS],
-            allowLinks: true,
-            placeholder: "Add supplemental links"
-          },
-          media: {
-            label: "Managed Media",
-            description: "Auto-playing video via ee-media or static imagery.",
-            minLength: 0,
-            maxLength: 1,
-            allowedTags: ["ee-media", "video", "img", "picture"]
-          },
-          background: {
-            label: "Background",
-            description: "Fallback background element.",
-            minLength: 0,
-            maxLength: 1
-          },
-          "background-mobile": {
-            label: "Mobile BG",
-            description: "Breakpoint-specific background.",
-            minLength: 0,
-            maxLength: 1
-          },
-          "background-tablet": {
-            label: "Tablet BG",
-            description: "Breakpoint-specific background.",
-            minLength: 0,
-            maxLength: 1
-          }
-        }
-      }
-    };
-  },
-  create() {
-    const template = document.createElement("template");
-    template.innerHTML = `
-      <acom-hero-marquee>
-        <merch-mnemonic slot="lockup" name="photoshop" size="l"></merch-mnemonic>
-        <span slot="lockup-label">Photoshop</span>
-        <h1 slot="heading">Work smarter and faster in Photoshop.</h1>
-        <div slot="body">
-          <p>Generative AI and partner integrations help you remove distractions, blend scenes, and ideate faster than ever. Starting at <ee-content inline><inline-price value="22.99" currency="US$" period="mo"></inline-price></ee-content></p>
-        </div>
-        <checkout-button slot="actions" variant="accent" size="l" href="https://www.adobe.com/creativecloud/plans.html?plan=individual&amp;filter=all">Buy now</checkout-button>
-        <checkout-button slot="actions" variant="secondary" size="l" href="https://commerce.adobe.com/store/segmentation?cli=mini_plans&amp;ctx=if&amp;co=US&amp;lang=en&amp;ms=COM&amp;ot=TRIAL&amp;cs=INDIVIDUAL&amp;pa=phsp_direct_individual&amp;rtc=t&amp;lo=sl&amp;af=uc_new_user_iframe%2Cuc_new_system_close">Free trial</checkout-button>
-        <p slot="supporting">Browse plans for <a href="https://www.adobe.com/creativecloud/business/teams/photoshop.html">businesses</a> or <a href="https://www.adobe.com/creativecloud/buy/students.html">students and teachers</a>.</p>
-        <ee-media slot="media" src="https://www.adobe.com/creativecloud/media_144f0767f767e2c5ec1fe47834c64f876a55f20e5.mp4" poster="https://www.adobe.com/creativecloud/media_1c97b086fb69ba9a23d43c94d5c27d31e60f9f317.jpg?width=1600&amp;format=webply&amp;optimize=medium"></ee-media>
-      </acom-hero-marquee>
-    `;
-    return template.content.firstElementChild;
-  },
-  sanitize(element) {
-    if (!element) return;
-    Array.from(element.children).forEach((child) => {
-      const slot = child.getAttribute("slot") || "";
-      if (!HERO_MARQUEE_SLOTS.has(slot)) {
-        child.removeAttribute("slot");
-        return;
-      }
-      if (slot === "lockup" && child.tagName !== "MERCH-MNEMONIC") {
-        child.removeAttribute("slot");
-      }
-    });
-  },
-  toJson(element, serializeNode) {
-    const schema2 = this.getSchema(element);
-    return makeToJson(element, schema2, serializeNode);
-  }
-};
-
 // node_modules/@spectrum-web-components/icons-workflow/src/elements/IconPanel.js
 init_src();
 
@@ -72636,7 +71075,7 @@ var acomAsideStyleSheet = i`
 `;
 
 // src/custom-elements/acom/acom-aside.js
-var DEFAULT_BACKGROUND2 = "transparent";
+var DEFAULT_BACKGROUND = "transparent";
 var OBSERVED_SLOTS = [
   "eyebrow",
   "heading",
@@ -72679,7 +71118,7 @@ var AcomAside = class extends i4 {
   #sectionLabelId = null;
   constructor() {
     super();
-    this.backgroundColor = DEFAULT_BACKGROUND2;
+    this.backgroundColor = DEFAULT_BACKGROUND;
     this.variant = "medium";
     this.mediaPosition = "right";
     this.mediaStacked = false;
@@ -72867,7 +71306,7 @@ var AcomAside = class extends i4 {
     scripts.forEach((script) => script.remove());
   }
   #applyBackgroundColor() {
-    const normalized = normalizeBackgroundValue(this.backgroundColor, DEFAULT_BACKGROUND2);
+    const normalized = normalizeBackgroundValue(this.backgroundColor, DEFAULT_BACKGROUND);
     this.style.setProperty("--acom-aside-background", normalized);
   }
   #normalizeTheme() {
@@ -72926,8 +71365,8 @@ var ASIDE_SLOTS = /* @__PURE__ */ new Set([
   "background-tablet",
   "background-desktop"
 ]);
-var textStyles4 = ["bold", "italic", "underline", "strikethrough"];
-var alignFormats4 = ["align-left", "align-center", "align-right"];
+var textStyles3 = ["bold", "italic", "underline", "strikethrough"];
+var alignFormats3 = ["align-left", "align-center", "align-right"];
 var listFormats = ["unordered-list", "ordered-list"];
 AcomAside.ee = {
   getElementIcon(html) {
@@ -73011,7 +71450,7 @@ AcomAside.ee = {
             maxLength: 1,
             inlineEditable: true,
             allowedStyles: ["bold", "italic", "underline"],
-            allowedFormats: [...alignFormats4],
+            allowedFormats: [...alignFormats3],
             allowLinks: false,
             tag: "p",
             multiline: false
@@ -73024,7 +71463,7 @@ AcomAside.ee = {
             maxLength: 1,
             inlineEditable: true,
             allowedStyles: ["bold", "italic", "underline"],
-            allowedFormats: [...alignFormats4],
+            allowedFormats: [...alignFormats3],
             allowLinks: false,
             tag: "h2",
             multiline: false
@@ -73035,8 +71474,8 @@ AcomAside.ee = {
             placeholder: "Add supporting paragraphs.",
             inlineEditable: true,
             multiline: true,
-            allowedStyles: [...textStyles4],
-            allowedFormats: [...alignFormats4, ...listFormats],
+            allowedStyles: [...textStyles3],
+            allowedFormats: [...alignFormats3, ...listFormats],
             allowLinks: true,
             allowPaste: true,
             tag: "div"
@@ -73150,1568 +71589,6 @@ AcomAside.ee = {
       const slot = child.getAttribute("slot") || "";
       if (!ASIDE_SLOTS.has(slot)) {
         child.removeAttribute("slot");
-      }
-    });
-  },
-  toJson(element, serializeNode) {
-    const schema2 = this.getSchema(element);
-    return makeToJson(element, schema2, serializeNode);
-  }
-};
-
-// node_modules/@spectrum-web-components/icons-workflow/src/elements/IconCard.js
-init_src();
-
-// node_modules/@spectrum-web-components/icons-workflow/src/icons/Card.js
-var CardIcon = ({ width: a23 = 24, height: t34 = 24, hidden: e36 = false, title: r25 = "Card" } = {}) => tag`<svg
-    xmlns="http://www.w3.org/2000/svg"
-    height="${t34}"
-    viewBox="0 0 36 36"
-    width="${a23}"
-    aria-hidden=${e36 ? "true" : "false"}
-    role="img"
-    fill="currentColor"
-    aria-label="${r25}"
-  >
-    <path
-      d="M31 2H5a1 1 0 0 0-1 1v30a1 1 0 0 0 1 1h26a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1ZM12 29.5a.5.5 0 0 1-.5.5h-5a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 .5.5Zm18 0a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h13a.5.5 0 0 1 .5.5Zm0-7.5H6V4h24Z"
-    />
-  </svg>`;
-
-// node_modules/@spectrum-web-components/icons-workflow/src/elements/IconCard.js
-var IconCard = class extends IconBase {
-  render() {
-    return setCustomTemplateLiteralTag(x), this.spectrumVersion === 1 ? CardIcon({ hidden: !this.label, title: this.label }) : DefaultIcon({ hidden: !this.label, title: this.label });
-  }
-};
-
-// node_modules/@spectrum-web-components/icons-workflow/icons/sp-icon-card.js
-init_define_element();
-defineElement("sp-icon-card", IconCard);
-
-// src/custom-elements/acom/acom-feature-card.js
-init_lit();
-
-// src/custom-elements/acom/acom-feature-card.css.js
-init_lit();
-var acomFeatureCardStyleSheet = i`
-  :host {
-    display: block;
-    box-sizing: border-box;
-    background: var(--acom-feature-card-background, var(--spectrum-global-color-gray-50));
-    border-radius: var(--spectrum-global-dimension-size-100);
-    min-height: 100%;
-  }
-
-  :host([theme="dark"]) {
-    background: var(--acom-feature-card-background, rgb(34, 34, 34));
-  }
-
-  :host([hidden]) {
-    display: none !important;
-  }
-
-  sp-theme {
-    display: block;
-    border-radius: inherit;
-    min-height: 100%;
-  }
-
-  article {
-    display: grid;
-    gap: var(--spectrum-global-dimension-size-300);
-    padding: var(--spectrum-global-dimension-size-400);
-    box-sizing: border-box;
-    color: var(--spectrum-body-color);
-  }
-
-  .feature-media {
-    display: block;
-  }
-
-  .feature-media ::slotted(img),
-  .feature-media ::slotted(video),
-  .feature-media ::slotted(picture) {
-    width: 100%;
-    border-radius: var(--spectrum-global-dimension-size-100);
-  }
-
-  .feature-heading ::slotted(*) {
-    margin: 0;
-  }
-
-  .feature-body {
-    display: grid;
-    gap: var(--spectrum-global-dimension-size-150);
-  }
-
-  .feature-actions {
-    display: flex;
-    gap: var(--spectrum-global-dimension-size-200);
-    flex-wrap: wrap;
-  }
-`;
-
-// src/custom-elements/acom/acom-feature-card.js
-var AcomFeatureCard = class extends i4 {
-  static styles = [acomFeatureCardStyleSheet];
-  static properties = {
-    theme: { type: String, reflect: true },
-    backgroundColor: { type: String, attribute: "background-color" }
-  };
-  #slotObservers;
-  #sectionLabelId;
-  constructor() {
-    super();
-    this.theme = "";
-    this.backgroundColor = "";
-    this.#slotObservers = [];
-    this.#sectionLabelId = null;
-    ensureId(this, "acom-feature-card");
-  }
-  connectedCallback() {
-    super.connectedCallback();
-    this.#applyBackgroundColor();
-  }
-  #applyBackgroundColor() {
-    const backgroundValue = normalizeBackgroundValue(this.backgroundColor, "");
-    if (backgroundValue) {
-      this.style.setProperty("--acom-feature-card-background", backgroundValue);
-    } else {
-      this.style.removeProperty("--acom-feature-card-background");
-    }
-  }
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    disconnectSlotObservers(this.#slotObservers);
-    setJsonLd(this, null, "acom-feature-card");
-  }
-  firstUpdated() {
-    this.#slotObservers = observeSlots(
-      this,
-      ["media", "heading", "body", "", "actions"],
-      () => this.#updateAccessibilityAndSchema()
-    );
-    this.#updateAccessibilityAndSchema();
-  }
-  updated(changed) {
-    if (changed.has("theme")) {
-      this.#normalizeTheme();
-    }
-    if (changed.has("backgroundColor")) {
-      this.#applyBackgroundColor();
-    }
-    this.#updateAccessibilityAndSchema();
-  }
-  render() {
-    const cardContent = x`
-      <article
-        id="${this.id}-article"
-        role="article"
-        aria-labelledby=${this.#sectionLabelId || E}
-      >
-        <div class="feature-media" id="${this.id}-media">
-          <slot name="media"></slot>
-        </div>
-        <div class="feature-heading" id="${this.id}-heading">
-          <slot name="heading"></slot>
-        </div>
-        <div class="feature-body" id="${this.id}-body">
-          <slot></slot>
-          <slot name="body"></slot>
-        </div>
-        <div class="feature-actions" id="${this.id}-actions">
-          <slot name="actions"></slot>
-        </div>
-      </article>
-    `;
-    if (this.theme === "dark" || this.theme === "light") {
-      return x`
-        <sp-theme color="${this.theme}" scale="medium" system="spectrum-two">
-          ${cardContent}
-        </sp-theme>
-      `;
-    }
-    return cardContent;
-  }
-  #normalizeTheme() {
-    this.theme = normalizeTheme(this.theme);
-  }
-  #updateAccessibilityAndSchema() {
-    const article = this.shadowRoot?.getElementById(`${this.id}-article`);
-    this.#sectionLabelId = updateRegionAccessibility({
-      host: this,
-      container: article,
-      headingSlot: "heading",
-      fallbackLabel: "Featured item",
-      idPrefix: `${this.id}-heading`
-    });
-    this.#emitJsonLd();
-  }
-  #emitJsonLd() {
-    emitCreativeWorkJsonLd(this, {
-      key: "acom-feature-card",
-      headingSlot: "heading",
-      descriptionSlots: ["", "body"],
-      actionSlot: "actions",
-      priceSelector: "inline-price",
-      mediaSlot: "media"
-    });
-  }
-};
-customElements.define("acom-feature-card", AcomFeatureCard);
-
-// src/custom-elements/acom/acom-feature-card.author.js
-var FEATURE_CARD_SLOTS = /* @__PURE__ */ new Set(["media", "heading", "body", "actions", ""]);
-var TEXT_STYLES5 = ["bold", "italic", "underline", "strikethrough"];
-var ALIGN_FORMATS3 = ["align-left", "align-center", "align-right"];
-var LIST_FORMATS = ["unordered-list", "ordered-list"];
-AcomFeatureCard.ee = {
-  getElementIcon(html) {
-    return html`<sp-icon-card slot="icon"></sp-icon-card>`;
-  },
-  getSchema() {
-    return {
-      schemaVersion: 1,
-      element: {
-        label: "ACOM Feature Card",
-        description: "Editorial feature card with media, heading, supporting copy, and actions.",
-        category: "content"
-      },
-      attributes: {
-        theme: {
-          type: "enum",
-          options: ["", "light", "dark"],
-          default: "",
-          label: "Theme",
-          description: "Set typography for light or dark backgrounds."
-        },
-        "background-color": makeSWCColorSchema({
-          defaultValue: "linear-gradient(135deg, #8ceaff 0%, #56afff 100%)",
-          label: "Background Fill",
-          description: "Solid color or gradient applied behind the card.",
-          attr: "background-color",
-          allowGradient: true
-        })
-      },
-      slots: {
-        order: ["media", "heading", "body", "actions"],
-        configs: {
-          media: {
-            label: "Media",
-            description: "Image or video preview.",
-            minLength: 0,
-            maxLength: 1
-          },
-          heading: {
-            label: "Heading",
-            description: "Card headline text.",
-            placeholder: "Add a concise title.",
-            minLength: 1,
-            maxLength: 1,
-            inlineEditable: true,
-            allowedStyles: ["bold", "italic", "underline"],
-            allowedFormats: [...ALIGN_FORMATS3],
-            allowLinks: false,
-            tag: "h3",
-            multiline: false
-          },
-          body: {
-            label: "Body",
-            description: "Supporting descriptive content.",
-            placeholder: "Add descriptive text.",
-            minLength: 1,
-            maxLength: null,
-            inlineEditable: true,
-            multiline: true,
-            allowedStyles: [...TEXT_STYLES5],
-            allowedFormats: [...ALIGN_FORMATS3, ...LIST_FORMATS],
-            allowLinks: true
-          },
-          actions: {
-            label: "Actions",
-            description: "Optional CTA buttons or links.",
-            minLength: 0,
-            maxLength: 2
-          }
-        }
-      }
-    };
-  },
-  create() {
-    const template = document.createElement("template");
-    template.innerHTML = `
-      <acom-feature-card background-color="linear-gradient(135deg, #8ceaff 0%, #56afff 100%)">
-        <h3 slot="heading">Feature title</h3>
-        <p slot="body">Explain the key value point for this feature.</p>
-      </acom-feature-card>
-    `;
-    return template.content.firstElementChild;
-  },
-  sanitize(element) {
-    if (!element) return;
-    Array.from(element.children).forEach((child) => {
-      const slot = child.getAttribute("slot") || "";
-      if (!FEATURE_CARD_SLOTS.has(slot)) {
-        child.removeAttribute("slot");
-      }
-    });
-  },
-  toJson(element, serializeNode) {
-    const schema2 = this.getSchema(element);
-    return makeToJson(element, schema2, serializeNode);
-  }
-};
-
-// node_modules/@spectrum-web-components/icons-workflow/src/elements/IconImageCarousel.js
-init_src();
-
-// node_modules/@spectrum-web-components/icons-workflow/src/icons/ImageCarousel.js
-var ImageCarouselIcon = ({ width: e36 = 24, height: r25 = 24, hidden: t34 = false, title: a23 = "Image Carousel" } = {}) => tag`<svg
-    xmlns="http://www.w3.org/2000/svg"
-    height="${r25}"
-    viewBox="0 0 36 36"
-    width="${e36}"
-    aria-hidden=${t34 ? "true" : "false"}
-    role="img"
-    fill="currentColor"
-    aria-label="${a23}"
-  >
-    <rect height="22" rx="1" ry="1" width="24" x="6" y="2" />
-    <path
-      d="M4 22H1a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h3ZM35 22h-3V6h3a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1Z"
-    />
-    <circle cx="8" cy="30" r="1.4" />
-    <circle cx="14" cy="30" r="2.1" />
-    <circle cx="20" cy="30" r="1.4" />
-    <circle cx="26" cy="30" r="1.4" />
-  </svg>`;
-
-// node_modules/@spectrum-web-components/icons-workflow/src/elements/IconImageCarousel.js
-var IconImageCarousel = class extends IconBase {
-  render() {
-    return setCustomTemplateLiteralTag(x), this.spectrumVersion === 1 ? ImageCarouselIcon({ hidden: !this.label, title: this.label }) : DefaultIcon({ hidden: !this.label, title: this.label });
-  }
-};
-
-// node_modules/@spectrum-web-components/icons-workflow/icons/sp-icon-image-carousel.js
-init_define_element();
-defineElement("sp-icon-image-carousel", IconImageCarousel);
-
-// src/custom-elements/acom/acom-feature-carousel.js
-init_lit();
-init_style_map2();
-init_repeat2();
-
-// node_modules/@spectrum-web-components/icons-workflow/src/elements/IconArrowLeft.js
-init_src();
-
-// node_modules/@spectrum-web-components/icons-workflow/src/icons/ArrowLeft.js
-var ArrowLeftIcon = ({ width: t34 = 24, height: e36 = 24, hidden: r25 = false, title: a23 = "Arrow Left" } = {}) => tag`<svg
-    xmlns="http://www.w3.org/2000/svg"
-    height="${e36}"
-    viewBox="0 0 36 36"
-    width="${t34}"
-    aria-hidden=${r25 ? "true" : "false"}
-    role="img"
-    fill="currentColor"
-    aria-label="${a23}"
-  >
-    <path
-      d="M16 12h17a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H16v6.993a.5.5 0 0 1-.854.354L1.8 18 15.146 4.654a.5.5 0 0 1 .854.353Z"
-    />
-  </svg>`;
-
-// node_modules/@spectrum-web-components/icons-workflow/src/elements/IconArrowLeft.js
-var IconArrowLeft = class extends IconBase {
-  render() {
-    return setCustomTemplateLiteralTag(x), this.spectrumVersion === 1 ? ArrowLeftIcon({ hidden: !this.label, title: this.label }) : DefaultIcon({ hidden: !this.label, title: this.label });
-  }
-};
-
-// node_modules/@spectrum-web-components/icons-workflow/icons/sp-icon-arrow-left.js
-init_define_element();
-defineElement("sp-icon-arrow-left", IconArrowLeft);
-
-// node_modules/@spectrum-web-components/icons-workflow/src/elements/IconArrowRight.js
-init_src();
-
-// node_modules/@spectrum-web-components/icons-workflow/src/icons/ArrowRight.js
-var ArrowRightIcon = ({ width: t34 = 24, height: e36 = 24, hidden: r25 = false, title: a23 = "Arrow Right" } = {}) => tag`<svg
-    xmlns="http://www.w3.org/2000/svg"
-    height="${e36}"
-    viewBox="0 0 36 36"
-    width="${t34}"
-    aria-hidden=${r25 ? "true" : "false"}
-    role="img"
-    fill="currentColor"
-    aria-label="${a23}"
-  >
-    <path
-      d="M20 12H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h17v6.993a.5.5 0 0 0 .854.354L34.2 18 20.854 4.654a.5.5 0 0 0-.854.353Z"
-    />
-  </svg>`;
-
-// node_modules/@spectrum-web-components/icons-workflow/src/elements/IconArrowRight.js
-var IconArrowRight = class extends IconBase {
-  render() {
-    return setCustomTemplateLiteralTag(x), this.spectrumVersion === 1 ? ArrowRightIcon({ hidden: !this.label, title: this.label }) : DefaultIcon({ hidden: !this.label, title: this.label });
-  }
-};
-
-// node_modules/@spectrum-web-components/icons-workflow/icons/sp-icon-arrow-right.js
-init_define_element();
-defineElement("sp-icon-arrow-right", IconArrowRight);
-
-// src/custom-elements/acom/acom-feature-carousel.css.js
-init_lit();
-var acomFeatureCarouselStyleSheet = i`
-  :host {
-    display: block;
-    box-sizing: border-box;
-  }
-
-  :host([hidden]) {
-    display: none !important;
-  }
-
-  .carousel {
-    position: relative;
-    padding-inline: var(--spectrum-global-dimension-size-200);
-  }
-
-  .carousel-track {
-    display: grid;
-    grid-auto-flow: column;
-    gap: var(--spectrum-global-dimension-size-300);
-    overflow: hidden;
-  }
-
-  .carousel-window {
-    overflow: hidden;
-  }
-
-  .carousel-track-inner {
-    display: grid;
-    grid-auto-flow: column;
-    gap: var(--spectrum-global-dimension-size-300);
-    transition: transform 200ms ease;
-  }
-
-  .carousel-track-inner ::slotted(*) {
-    min-width: var(--acom-feature-carousel-item-width, 100%);
-  }
-
-  .carousel-controls {
-    margin-top: var(--spectrum-global-dimension-size-300);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: var(--spectrum-global-dimension-size-200);
-    flex-wrap: wrap;
-  }
-
-  .carousel-buttons {
-    display: flex;
-    gap: var(--spectrum-global-dimension-size-200);
-  }
-
-  .carousel-indicators {
-    display: grid;
-    grid-auto-flow: column;
-    gap: var(--spectrum-global-dimension-size-200);
-  }
-
-  .indicator {
-    width: var(--spectrum-global-dimension-size-150);
-    height: var(--spectrum-global-dimension-size-150);
-    border-radius: 50%;
-    background: var(--spectrum-global-color-gray-400);
-  }
-
-  .indicator[aria-current="true"] {
-    background: var(--spectrum-global-color-gray-900);
-  }
-`;
-
-// src/custom-elements/acom/acom-feature-carousel.js
-var AcomFeatureCarousel = class extends i4 {
-  static styles = [acomFeatureCarouselStyleSheet];
-  static properties = {
-    slidesPerView: { type: Number, attribute: "slides-per-view" },
-    currentIndex: { type: Number, state: true },
-    slides: { state: true },
-    showIndicators: {
-      type: Boolean,
-      attribute: "show-indicators",
-      converter: booleanConverter
-    }
-  };
-  #regionLabel;
-  constructor() {
-    super();
-    this.slidesPerView = 3;
-    this.currentIndex = 0;
-    this.showIndicators = true;
-    this.slides = [];
-    this.#regionLabel = "Feature carousel";
-    ensureId(this, "acom-feature-carousel");
-  }
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    setJsonLd(this, null, "acom-feature-carousel");
-  }
-  render() {
-    const itemWidth = this.slidesPerView > 0 ? 100 / this.slidesPerView : 100;
-    const maxIndex = this.#maxIndex();
-    const constrainedIndex = Math.min(this.currentIndex, maxIndex);
-    if (constrainedIndex !== this.currentIndex) {
-      this.currentIndex = constrainedIndex;
-    }
-    const offset4 = constrainedIndex * itemWidth;
-    const innerStyles = {
-      transform: `translateX(-${offset4}%)`,
-      "--acom-feature-carousel-item-width": `${itemWidth}%`
-    };
-    return x`
-      <div
-        class="carousel"
-        id="${this.id}-carousel"
-        role="region"
-        aria-label=${this.getAttribute("aria-label") || this.#regionLabel}
-      >
-        <div class="carousel-window">
-          <div class="carousel-track">
-            <div class="carousel-track-inner" style=${o10(innerStyles)}>
-              <slot @slotchange=${this.#handleSlotChange}></slot>
-            </div>
-          </div>
-        </div>
-        ${this.#renderControls(maxIndex)}
-      </div>
-    `;
-  }
-  #renderControls(maxIndex) {
-    const hasSlides = this.slides.length > this.slidesPerView;
-    if (!hasSlides) {
-      return E;
-    }
-    return x`
-      <div class="carousel-controls" id="${this.id}-controls">
-        <div class="carousel-buttons">
-          <sp-action-button
-            aria-controls="${this.id}-carousel"
-            aria-label="Previous slide"
-            @click=${this.#goPrevious}
-            ?disabled=${this.currentIndex === 0}
-          >
-            <sp-icon-arrow-left slot="icon"></sp-icon-arrow-left>
-            Previous
-          </sp-action-button>
-          <sp-action-button
-            aria-controls="${this.id}-carousel"
-            aria-label="Next slide"
-            @click=${this.#goNext}
-            ?disabled=${this.currentIndex >= maxIndex}
-          >
-            <sp-icon-arrow-right slot="icon"></sp-icon-arrow-right>
-            Next
-          </sp-action-button>
-        </div>
-        ${this.showIndicators ? x`
-              <div class="carousel-indicators" role="tablist">
-                ${c5(
-      this.slides,
-      (_2, index) => `${this.id}-indicator-${index}`,
-      (_2, index) => x`
-                    <button
-                      type="button"
-                      class="indicator"
-                      role="tab"
-                      aria-controls="${this.id}-carousel"
-                      aria-label="Slide ${index + 1}"
-                      aria-current=${this.currentIndex === index ? "true" : "false"}
-                      @click=${() => this.#goTo(index)}
-                    ></button>
-                  `
-    )}
-              </div>
-            ` : E}
-      </div>
-    `;
-  }
-  #handleSlotChange(event) {
-    this.slides = event.target.assignedElements({ flatten: true }).filter((el) => el instanceof HTMLElement);
-    this.currentIndex = Math.min(this.currentIndex, this.#maxIndex());
-    this.#updateJsonLd();
-  }
-  #maxIndex() {
-    if (this.slides.length === 0) {
-      return 0;
-    }
-    const max2 = this.slides.length - this.slidesPerView;
-    return max2 > 0 ? max2 : 0;
-  }
-  #goPrevious = () => {
-    this.currentIndex = Math.max(0, this.currentIndex - 1);
-  };
-  #goNext = () => {
-    this.currentIndex = Math.min(this.#maxIndex(), this.currentIndex + 1);
-  };
-  #goTo(index) {
-    this.currentIndex = Math.min(Math.max(index, 0), this.#maxIndex());
-  }
-  #updateJsonLd() {
-    const items = this.slides.map((slide, index) => {
-      const name = collectSlotText(slide, "heading") || collectSlotText(slide, "") || `Slide ${index + 1}`;
-      const description = collectSlotText(slide, "body") || collectSlotText(slide, "");
-      const action = slide.querySelector("checkout-button[href]")?.getAttribute("href") || slide.querySelector("a[href]")?.getAttribute("href") || "";
-      return {
-        position: index + 1,
-        name,
-        description,
-        url: action
-      };
-    }).filter((item) => item.name);
-    emitItemListJsonLd(this, "acom-feature-carousel", items);
-  }
-};
-customElements.define("acom-feature-carousel", AcomFeatureCarousel);
-
-// src/custom-elements/acom/acom-feature-carousel.author.js
-AcomFeatureCarousel.ee = {
-  getElementIcon(html) {
-    return html`<sp-icon-image-carousel slot="icon"></sp-icon-image-carousel>`;
-  },
-  getSchema() {
-    return {
-      schemaVersion: 1,
-      element: {
-        label: "ACOM Feature Carousel",
-        description: "Carousel container that displays feature cards with navigation.",
-        category: "structure"
-      },
-      attributes: {
-        "slides-per-view": {
-          type: "number",
-          default: 3,
-          label: "Slides per view",
-          description: "Number of cards visible at once on wide viewports.",
-          min: 1,
-          max: 6
-        },
-        "show-indicators": {
-          type: "boolean",
-          default: true,
-          label: "Show indicators",
-          description: "Toggle visibility of pagination indicators."
-        }
-      },
-      slots: {
-        order: ["default"],
-        configs: {
-          default: {
-            label: "Feature Cards",
-            description: "Add acom-feature-card elements.",
-            minLength: 1,
-            maxLength: null
-          }
-        }
-      }
-    };
-  },
-  create() {
-    const template = document.createElement("template");
-    template.innerHTML = `
-      <acom-feature-carousel slides-per-view="3" show-indicators>
-        <acom-feature-card background-color="--spectrum-global-color-gray-50">
-          <h3 slot="heading">Feature 1</h3>
-          <p slot="body">Describe this feature benefit and supporting details.</p>
-        </acom-feature-card>
-        <acom-feature-card background-color="--spectrum-global-color-gray-50">
-          <h3 slot="heading">Feature 2</h3>
-          <p slot="body">Describe this feature benefit and supporting details.</p>
-        </acom-feature-card>
-        <acom-feature-card background-color="--spectrum-global-color-gray-50">
-          <h3 slot="heading">Feature 3</h3>
-          <p slot="body">Describe this feature benefit and supporting details.</p>
-        </acom-feature-card>
-      </acom-feature-carousel>
-    `;
-    return template.content.firstElementChild;
-  },
-  sanitize(element) {
-    if (!element) return;
-    Array.from(element.children).forEach((child) => {
-      if (child.tagName !== "ACOM-FEATURE-CARD") {
-        child.remove();
-      }
-    });
-  },
-  toJson(element, serializeNode) {
-    const schema2 = this.getSchema(element);
-    return makeToJson(element, schema2, serializeNode);
-  }
-};
-
-// node_modules/@spectrum-web-components/icons-workflow/src/elements/IconText.js
-init_src();
-
-// node_modules/@spectrum-web-components/icons-workflow/src/icons-s2/Text.js
-var TextIcon = ({ width: t34 = 24, height: e36 = 24, hidden: r25 = false, title: l16 = "Text" } = {}) => tag`<svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="${t34}"
-    height="${e36}"
-    viewBox="0 0 20 20"
-    aria-hidden=${r25 ? "true" : "false"}
-    role="img"
-    fill="currentColor"
-    aria-label="${l16}"
-  >
-    <path
-      d="m14.58984,2H5.41016c-1.24072,0-2.25,1.00977-2.25,2.25v1.11035c0,.41406.33594.75.75.75s.75-.33594.75-.75v-1.11035c0-.41309.33643-.75.75-.75h3.83984v13h-1.56982c-.41406,0-.75.33594-.75.75s.33594.75.75.75h4.63965c.41406,0,.75-.33594.75-.75s-.33594-.75-.75-.75h-1.56982V3.5h3.83984c.41357,0,.75.33691.75.75v1.11035c0,.41406.33594.75.75.75s.75-.33594.75-.75v-1.11035c0-1.24023-1.00928-2.25-2.25-2.25Z"
-      fill="currentColor"
-    />
-  </svg>`;
-
-// node_modules/@spectrum-web-components/icons-workflow/src/icons/Text.js
-var TextIcon2 = ({ width: a23 = 24, height: t34 = 24, hidden: e36 = false, title: r25 = "Text" } = {}) => tag`<svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="${a23}"
-    height="${t34}"
-    viewBox="0 0 36 36"
-    aria-hidden=${e36 ? "true" : "false"}
-    role="img"
-    fill="currentColor"
-    aria-label="${r25}"
-  >
-    <path
-      d="M5 4a1.003 1.003 0 0 0-1 1v6a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1V8h8v20h-3a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1h-3V8h8v3a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1V5a1.003 1.003 0 0 0-1-1Z"
-    />
-  </svg>`;
-
-// node_modules/@spectrum-web-components/icons-workflow/src/elements/IconText.js
-var IconText = class extends IconBase {
-  render() {
-    return setCustomTemplateLiteralTag(x), this.spectrumVersion === 2 ? TextIcon({ hidden: !this.label, title: this.label }) : TextIcon2({ hidden: !this.label, title: this.label });
-  }
-};
-
-// node_modules/@spectrum-web-components/icons-workflow/icons/sp-icon-text.js
-init_define_element();
-defineElement("sp-icon-text", IconText);
-
-// src/custom-elements/acom/acom-text.js
-init_lit();
-
-// src/custom-elements/acom/acom-text.css.js
-init_lit();
-var acomTextStyleSheet = i`
-  :host {
-    display: block;
-    box-sizing: border-box;
-    background: var(--acom-text-background, transparent);
-  }
-
-  :host([hidden]) {
-    display: none !important;
-  }
-
-  sp-theme {
-    display: block;
-  }
-
-  section {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spectrum-global-dimension-size-400);
-    padding: var(--acom-text-padding, var(--spectrum-global-dimension-size-1000));
-    text-align: var(--acom-text-align, center);
-    margin: 0 auto;
-    color: var(--spectrum-body-color);
-  }
-
-  slot {
-    display: block;
-  }
-
-  slot[name="icon"] {
-    display: flex;
-    justify-content: center;
-  }
-
-  slot[name="icon"]::slotted(*) {
-    margin: 0 auto;
-  }
-
-  slot[name="icon"]::slotted(img),
-  slot[name="icon"]::slotted(svg) {
-    width: var(--spectrum-global-dimension-size-700);
-    height: var(--spectrum-global-dimension-size-700);
-    display: block;
-  }
-
-  slot[name="icon"]::slotted(merch-mnemonic) {
-    --icon-size: var(--acom-text-icon-size, var(--spectrum-global-dimension-size-900));
-  }
-
-  slot[name="heading"]::slotted(*) {
-    margin: 0;
-    font-size: var(--spectrum-global-dimension-font-size-800, 2.75rem);
-    font-weight: 700;
-    line-height: 1.15;
-    letter-spacing: -0.02em;
-  }
-
-  slot[name="body"],
-  slot:not([name]) {
-    display: contents;
-  }
-
-  slot[name="body"]::slotted(*),
-  slot:not([name])::slotted(*) {
-    margin: 0;
-    font-size: var(--spectrum-global-dimension-font-size-300, 1.25rem);
-    line-height: 1.6;
-  }
-
-  slot[name="body"]::slotted(p),
-  slot:not([name])::slotted(p),
-  slot[name="body"]::slotted(div),
-  slot:not([name])::slotted(div) {
-    margin: 0;
-    font-size: var(--spectrum-global-dimension-font-size-300, 1.25rem);
-    line-height: 1.6;
-  }
-
-  slot[name="actions"] {
-    display: inline-flex;
-    flex-wrap: wrap;
-    justify-content: var(--acom-text-justify, center);
-    gap: var(--spectrum-global-dimension-size-300);
-  }
-
-  slot[name="actions"]::slotted(*) {
-    margin: 0;
-  }
-
-`;
-
-// src/custom-elements/acom/acom-text.js
-var AcomText = class extends i4 {
-  static styles = [acomTextStyleSheet];
-  static properties = {
-    align: { type: String, reflect: true },
-    theme: { type: String, reflect: true },
-    backgroundColor: { type: String, attribute: "background-color" },
-    padding: { type: String }
-  };
-  #slotObservers;
-  #sectionLabelId;
-  constructor() {
-    super();
-    this.align = "center";
-    this.backgroundColor = "";
-    this.padding = "";
-    this.theme = "";
-    this.#slotObservers = [];
-    this.#sectionLabelId = null;
-    ensureId(this, "acom-text");
-  }
-  connectedCallback() {
-    super.connectedCallback();
-    this.#applyHostStyles();
-  }
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    disconnectSlotObservers(this.#slotObservers);
-    setJsonLd(this, null, "acom-text");
-  }
-  firstUpdated() {
-    this.#slotObservers = observeSlots(
-      this,
-      ["heading", "body", "", "actions", "icon"],
-      () => this.#handleContentChange()
-    );
-    this.#handleContentChange();
-  }
-  updated(changedProps) {
-    if (changedProps.has("align")) {
-      this.#normalizeAlign();
-    }
-    if (changedProps.has("theme")) {
-      this.#normalizeTheme();
-    }
-    if (changedProps.has("backgroundColor") || changedProps.has("padding") || changedProps.has("align")) {
-      this.#applyHostStyles();
-    }
-    this.#handleContentChange();
-  }
-  render() {
-    const sectionContent = x`
-      <section
-        id="${this.id}-section"
-        role="region"
-        aria-labelledby=${this.#sectionLabelId || E}
-      >
-        <slot name="icon"></slot>
-        <slot name="heading"></slot>
-        <slot name="body"></slot>
-        <slot></slot>
-        <slot name="actions"></slot>
-      </section>
-    `;
-    if (this.theme === "dark" || this.theme === "light") {
-      return x`
-        <sp-theme color="${this.theme}" scale="medium" system="spectrum-two">
-          ${sectionContent}
-        </sp-theme>
-      `;
-    }
-    return sectionContent;
-  }
-  #normalizeAlign() {
-    const allowed = ["left", "center", "right"];
-    if (!allowed.includes(this.align)) {
-      this.align = "center";
-    }
-  }
-  #normalizeTheme() {
-    this.theme = normalizeTheme(this.theme);
-  }
-  #applyHostStyles() {
-    const backgroundValue = normalizeBackgroundValue(this.backgroundColor, "");
-    this.style.setProperty("--acom-text-background", backgroundValue || "");
-    if (this.padding) {
-      this.style.setProperty("--acom-text-padding", this.padding);
-    } else {
-      this.style.removeProperty("--acom-text-padding");
-    }
-    this.style.setProperty("--acom-text-align", this.align);
-    const justify = this.align === "center" ? "center" : this.align === "right" ? "flex-end" : "flex-start";
-    this.style.setProperty("--acom-text-justify", justify);
-  }
-  #handleContentChange() {
-    const section = this.shadowRoot?.getElementById(`${this.id}-section`);
-    if (!section) {
-      return;
-    }
-    this.#sectionLabelId = updateRegionAccessibility({
-      host: this,
-      container: section,
-      headingSlot: "heading",
-      fallbackLabel: "Text spotlight",
-      idPrefix: `${this.id}-heading`
-    });
-  }
-};
-customElements.define("acom-text", AcomText);
-
-// src/custom-elements/acom/acom-text.author.js
-var TEXT_STYLES6 = ["bold", "italic", "underline", "strikethrough"];
-var ALIGN_FORMATS4 = ["align-left", "align-center", "align-right"];
-var LIST_FORMATS2 = ["unordered-list", "ordered-list"];
-AcomText.ee = {
-  getElementIcon(html) {
-    return html`<sp-icon-text slot="icon"></sp-icon-text>`;
-  },
-  getSchema() {
-    return {
-      schemaVersion: 1,
-      element: {
-        label: "ACOM Text",
-        description: "Centered hero-style text block with icon, price, and CTAs."
-      },
-      attributes: {
-        align: {
-          type: "enum",
-          options: ["left", "center", "right"],
-          default: "center",
-          label: "Alignment",
-          description: "Control how the text block aligns contents and actions."
-        },
-        theme: {
-          type: "enum",
-          options: ["", "light", "dark"],
-          default: "",
-          label: "Theme",
-          description: "Optional override to force light or dark typography."
-        },
-        "background-color": makeSWCColorSchema({
-          defaultValue: "var(--spectrum-global-color-gray-900)",
-          label: "Background Fill",
-          description: "Solid color, gradient, or token for the surface.",
-          attr: "background-color",
-          allowGradient: true
-        }),
-        padding: {
-          type: "text",
-          default: "var(--spectrum-global-dimension-size-600)",
-          label: "Padding",
-          description: "Custom padding around the surface (CSS value)."
-        }
-      },
-      slots: {
-        order: ["icon", "heading", "body", "actions"],
-        configs: {
-          icon: {
-            label: "Icon",
-            description: "Optional product or app icon.",
-            minLength: 0,
-            maxLength: 1
-          },
-          heading: {
-            label: "Heading",
-            description: "Primary headline text.",
-            inlineEditable: true,
-            multiline: false,
-            allowedStyles: ["bold", "italic", "underline"],
-            allowedFormats: [...ALIGN_FORMATS4],
-            allowLinks: false,
-            placeholder: "Add headline",
-            tag: "h3"
-          },
-          body: {
-            label: "Body",
-            description: "Supporting text paragraphs (wrap inline-price with ee-content when needed).",
-            inlineEditable: true,
-            allowedStyles: [...TEXT_STYLES6],
-            allowedFormats: [...ALIGN_FORMATS4, ...LIST_FORMATS2],
-            allowLinks: true,
-            multiline: true
-          },
-          actions: {
-            label: "Actions",
-            description: "CTA buttons or links (e.g., Free trial / Buy now).",
-            minLength: 0,
-            maxLength: 3
-          }
-        }
-      }
-    };
-  },
-  create() {
-    const template = document.createElement("template");
-    template.innerHTML = `<acom-text></acom-text>`;
-    return template.content.firstElementChild;
-  }
-};
-
-// node_modules/@spectrum-web-components/icons-workflow/src/elements/IconRocketQuickActions.js
-init_src();
-
-// node_modules/@spectrum-web-components/icons-workflow/src/icons-s2/RocketQuickActions.js
-var RocketQuickActionsIcon = ({ width: t34 = 24, height: l16 = 24, hidden: r25 = false, title: c33 = "Rocket Quick Actions" } = {}) => tag`<svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="${t34}"
-    height="${l16}"
-    viewBox="0 0 20 20"
-    aria-hidden=${r25 ? "true" : "false"}
-    role="img"
-    fill="currentColor"
-    aria-label="${c33}"
-  >
-    <path
-      d="m6.17871,18.82227c-.19238,0-.38379-.07324-.53027-.21973-.29297-.29297-.29297-.76855,0-1.06055l.93848-.9375c.29297-.29395.76758-.29199,1.06055,0,.29297.29297.29297.76855,0,1.06055l-.93848.9375c-.14648.14648-.33887.21973-.53027.21973Z"
-      fill="currentColor"
-      stroke-width="0"
-    />
-    <path
-      d="m1.91797,14.60254c-.19238,0-.38379-.07324-.53027-.21973-.29297-.29297-.29297-.76855,0-1.06055l.93848-.9375c.29395-.29395.76855-.29199,1.06055,0,.29297.29297.29297.76855,0,1.06055l-.93848.9375c-.14648.14648-.33887.21973-.53027.21973Z"
-      fill="currentColor"
-      stroke-width="0"
-    />
-    <path
-      d="m2.49805,18.25195c-.19141,0-.38281-.07227-.5293-.21777-.29297-.29297-.29492-.76758-.00293-1.06152l2.49609-2.50977c.29395-.29199.76758-.29492,1.06152-.00293.29297.29297.29492.76758.00293,1.06152l-2.49609,2.50977c-.14746.14648-.33984.2207-.53223.2207Z"
-      fill="currentColor"
-      stroke-width="0"
-    />
-    <path
-      d="m18.17969,1.66211c-.63672-.58496-1.5752-.78809-2.78125-.61133-2.32446.34424-4.17236,1.60938-5.65601,3.021-.3728-.04517-.74731-.07251-1.09302-.07178-2.9873.0293-5.75684,1.64844-7.40918,4.33301-.30566.49609-.31934,1.11816-.03516,1.62109.28223.49902.79199.7959,1.36035.7959h2.80249c.0874.51196.32861.99683.71216,1.37988l1.79004,1.79004c.38696.3877.87158.62378,1.37988.71143v2.78174c-.00488.58105.29199,1.09766.7959,1.38184.24121.13574.50977.2041.7793.2041.29102,0,.58398-.08008.84277-.23926,2.68359-1.65234,4.30273-4.42188,4.33203-7.40918.00317-.36157-.02563-.73145-.07178-1.10205.0708-.07422.15381-.1499.22217-.22412,1.55176-1.68066,2.46094-3.40625,2.7793-5.27734.23145-1.35938-.02832-2.42578-.75-3.08496Zm-12.38965,7.17773c-.07715.11133-.14062.22559-.19824.34375l-.00293.00586c-.00952.01978-.01465.04053-.02368.06055h-2.94165c-.0791,0-.12988-.08984-.08862-.15723,1.28149-2.08838,3.48608-3.45483,5.82349-3.57056-.10645.12231-.21875.24634-.32031.36646-.7207.85156-1.47656,1.84375-2.24805,2.95117Zm5.11768,8.62207c-.06738.04175-.15771-.00903-.15771-.08813v-2.9353c.14136-.06445.27979-.13794.41113-.22949,1.28613-.896,2.37158-1.74805,3.31689-2.57935-.11694,2.34155-1.46509,4.52954-3.57031,5.83228Zm6.54346-12.9668c-.26855,1.57617-1.05371,3.05176-2.40234,4.51172-1.15918,1.25488-2.71094,2.55371-4.74512,3.97168-.42969.2998-1.00586.24805-1.37305-.11914l-1.79004-1.79102c-.32031-.31934-.40137-.81055-.20312-1.22363.02539-.05078.05176-.10156.08398-.14844.74414-1.06738,1.47168-2.02246,2.16113-2.83887,1.6123-1.90527,3.63672-3.90918,6.43457-4.32227.51074-.07617,1.19141-.0957,1.5498.2334.43457.39746.36426,1.25293.28418,1.72656Z"
-      fill="currentColor"
-      stroke-width="0"
-    />
-    <path
-      d="m14.5,6.75c0,.69036-.55964,1.25-1.25,1.25s-1.25-.55964-1.25-1.25c0-.69036.55964-1.25,1.25-1.25s1.25.55964,1.25,1.25Z"
-      fill="currentColor"
-      stroke-width="0"
-    />
-  </svg>`;
-
-// node_modules/@spectrum-web-components/icons-workflow/src/elements/IconRocketQuickActions.js
-var IconRocketQuickActions = class extends IconBase {
-  render() {
-    return setCustomTemplateLiteralTag(x), this.spectrumVersion === 2 ? RocketQuickActionsIcon({ hidden: !this.label, title: this.label }) : DefaultIcon({ hidden: !this.label, title: this.label });
-  }
-};
-
-// node_modules/@spectrum-web-components/icons-workflow/icons/sp-icon-rocket-quick-actions.js
-init_define_element();
-defineElement("sp-icon-rocket-quick-actions", IconRocketQuickActions);
-
-// src/custom-elements/acom/acom-action-tile.js
-init_lit();
-init_style_map2();
-
-// src/custom-elements/acom/acom-action-tile.css.js
-init_lit();
-var acomActionTileStyleSheet = i`
-  :host {
-    display: block;
-    box-sizing: border-box;
-  }
-
-  :host([hidden]) {
-    display: none !important;
-  }
-
-  article {
-    display: grid;
-    gap: var(--spectrum-global-dimension-size-200);
-    padding: var(--spectrum-global-dimension-size-300);
-    border-radius: var(--spectrum-global-dimension-size-100);
-    background: var(--acom-action-tile-background, var(--spectrum-global-color-gray-50));
-    text-align: center;
-    min-height: 100%;
-    box-sizing: border-box;
-  }
-
-  .tile-icon ::slotted(img),
-  .tile-icon ::slotted(picture),
-  .tile-icon ::slotted(svg) {
-    width: var(--spectrum-global-dimension-size-400);
-    height: var(--spectrum-global-dimension-size-400);
-  }
-
-  .tile-heading ::slotted(*) {
-    margin: 0;
-  }
-`;
-
-// src/custom-elements/acom/acom-action-tile.js
-var AcomActionTile = class extends i4 {
-  static styles = [acomActionTileStyleSheet];
-  static properties = {
-    href: { type: String },
-    target: { type: String },
-    rel: { type: String },
-    backgroundColor: { type: String, attribute: "background-color" }
-  };
-  #slotObservers;
-  constructor() {
-    super();
-    this.href = "";
-    this.target = "_self";
-    this.rel = "noopener noreferrer";
-    this.backgroundColor = "";
-    this.#slotObservers = [];
-    ensureId(this, "acom-action-tile");
-  }
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    disconnectSlotObservers(this.#slotObservers);
-    setJsonLd(this, null, "acom-action-tile");
-  }
-  firstUpdated() {
-    this.#slotObservers = observeSlots(
-      this,
-      ["icon", "heading", "body"],
-      () => this.#updateJsonLd()
-    );
-    this.#updateJsonLd();
-  }
-  updated(changed) {
-    if (changed.has("href") || changed.has("backgroundColor")) {
-      this.requestUpdate();
-    }
-    this.#updateJsonLd();
-  }
-  render() {
-    const styles12 = {};
-    const backgroundValue = normalizeBackgroundValue(this.backgroundColor, "");
-    if (backgroundValue) {
-      styles12["--acom-action-tile-background"] = backgroundValue;
-    }
-    const content = x`
-      <article id="${this.id}-article" style=${o10(styles12)}>
-        <div class="tile-icon" id="${this.id}-icon">
-          <slot name="icon"></slot>
-        </div>
-        <div class="tile-heading" id="${this.id}-heading">
-          <slot name="heading"></slot>
-        </div>
-        <div class="tile-body" id="${this.id}-body">
-          <slot></slot>
-          <slot name="body"></slot>
-        </div>
-      </article>
-    `;
-    if (this.href) {
-      return x`
-        <a
-          id="${this.id}-link"
-          href=${this.href}
-          target=${this.target || "_self"}
-          rel=${this.rel || ""}
-        >
-          ${content}
-        </a>
-      `;
-    }
-    return content;
-  }
-  #updateJsonLd() {
-    emitCreativeWorkJsonLd(this, {
-      key: "acom-action-tile",
-      headingSlot: "heading",
-      descriptionSlots: ["body"],
-      actionSlot: null,
-      priceSelector: null,
-      url: this.href || ""
-    });
-  }
-};
-customElements.define("acom-action-tile", AcomActionTile);
-
-// src/custom-elements/acom/acom-action-tile.author.js
-var ACTION_TILE_SLOTS = /* @__PURE__ */ new Set(["icon", "heading", "body", ""]);
-var TEXT_STYLES7 = ["bold", "italic", "underline"];
-var ALIGN_FORMATS5 = ["align-left", "align-center", "align-right"];
-AcomActionTile.ee = {
-  getElementIcon(html) {
-    return html`<sp-icon-rocket-quick-actions slot="icon"></sp-icon-rocket-quick-actions>`;
-  },
-  getSchema() {
-    return {
-      schemaVersion: 1,
-      element: {
-        label: "ACOM Action Tile",
-        description: "Small icon-based tile linking to quick actions or tools.",
-        category: "content"
-      },
-      attributes: {
-        href: {
-          type: "text",
-          default: "",
-          label: "Link URL",
-          description: "Optional destination for the entire tile.",
-          placeholder: "https://example.com"
-        },
-        target: {
-          type: "text",
-          default: "_self",
-          label: "Link Target",
-          description: "Target attribute when href is provided."
-        },
-        rel: {
-          type: "text",
-          default: "noopener noreferrer",
-          label: "Link Rel",
-          description: "Rel attribute when opening external links."
-        },
-        "background-color": makeSWCColorSchema({
-          defaultValue: "linear-gradient(135deg, #ffd654 0%, #ff8c5a 100%)",
-          label: "Background Fill",
-          description: "Solid color or gradient background behind the tile.",
-          attr: "background-color",
-          allowGradient: true
-        })
-      },
-      slots: {
-        order: ["icon", "heading", "body"],
-        configs: {
-          icon: {
-            label: "Icon",
-            description: "Place a product icon or illustration.",
-            minLength: 0,
-            maxLength: 1
-          },
-          heading: {
-            label: "Heading",
-            description: "Short title for the tile.",
-            minLength: 1,
-            maxLength: 1,
-            inlineEditable: true,
-            allowedStyles: [...TEXT_STYLES7],
-            allowedFormats: [...ALIGN_FORMATS5],
-            allowLinks: false,
-            placeholder: "Add tile heading",
-            tag: "p",
-            multiline: false
-          },
-          body: {
-            label: "Body",
-            description: "Optional supporting label or caption.",
-            minLength: 0,
-            maxLength: 1,
-            inlineEditable: true,
-            allowedStyles: [...TEXT_STYLES7],
-            allowedFormats: [...ALIGN_FORMATS5],
-            allowLinks: true,
-            placeholder: "Add supporting caption",
-            tag: "p",
-            multiline: false
-          }
-        }
-      }
-    };
-  },
-  create() {
-    const template = document.createElement("template");
-    template.innerHTML = `
-      <acom-action-tile background-color="linear-gradient(135deg, #ffd654 0%, #ff8c5a 100%)">
-        <p slot="heading">Quick action</p>
-        <p slot="body">Launch into the featured workflow.</p>
-      </acom-action-tile>
-    `;
-    return template.content.firstElementChild;
-  },
-  sanitize(element) {
-    if (!element) return;
-    Array.from(element.children).forEach((child) => {
-      const slot = child.getAttribute("slot") || "";
-      if (!ACTION_TILE_SLOTS.has(slot)) {
-        child.removeAttribute("slot");
-      }
-    });
-  },
-  toJson(element, serializeNode) {
-    const schema2 = this.getSchema(element);
-    return makeToJson(element, schema2, serializeNode);
-  }
-};
-
-// node_modules/@spectrum-web-components/icons-workflow/src/elements/IconQuickSelect.js
-init_src();
-
-// node_modules/@spectrum-web-components/icons-workflow/src/icons/QuickSelect.js
-var QuickSelectIcon = ({ width: a23 = 24, height: l16 = 24, hidden: e36 = false, title: t34 = "Quick Select" } = {}) => tag`<svg
-    xmlns="http://www.w3.org/2000/svg"
-    height="${l16}"
-    viewBox="0 0 36 36"
-    width="${a23}"
-    aria-hidden=${e36 ? "true" : "false"}
-    role="img"
-    fill="currentColor"
-    aria-label="${t34}"
-  >
-    <path
-      d="M16.333 17.814a4.468 4.468 0 0 0-3.14.838 6.435 6.435 0 0 0-1.968 3.436c-.433 1.378-.948 2.877-2.182 3.627a2.28 2.28 0 0 0-.588.41.524.524 0 0 0-.062.657.729.729 0 0 0 .4.189c3.317.764 7.549 1.018 10.278-1.434a4.4 4.4 0 0 0-1.281-7.327 4.714 4.714 0 0 0-1.457-.396ZM22.937 19.527c5.707-6.49 12.954-15.41 11.056-17.308S24.235 9.174 18.582 15.37a7.93 7.93 0 0 1 4.355 4.157ZM7.469 5.954l-.6-2.037A11.153 11.153 0 0 0 3.064 8.39l1.985.483a9.007 9.007 0 0 1 2.42-2.919ZM4 13c0-.242.052-.469.071-.706l-1.988-.484A11.163 11.163 0 0 0 2 13.111v3.111h2ZM4 23v-3.222H2v3.111a11.167 11.167 0 0 0 .11 1.483l1.98-.483A8.717 8.717 0 0 1 4 23ZM5.14 27.293l-1.994.486a11.151 11.151 0 0 0 3.726 4.3l.6-2.038a8.979 8.979 0 0 1-2.332-2.748ZM13 32a8.87 8.87 0 0 1-2.3-.336l-.563 1.921a10.864 10.864 0 0 0 5.948 0L15.5 31.6a8.868 8.868 0 0 1-2.5.4ZM20.886 27.245A8.991 8.991 0 0 1 18.71 29.9l.64 2.185a11.154 11.154 0 0 0 3.727-4.3ZM20.942 8.856q.805-.869 1.554-1.66a11.1 11.1 0 0 0-3.146-3.279L18.71 6.1a8.98 8.98 0 0 1 2.232 2.756ZM13 4a8.867 8.867 0 0 1 2.5.4l.581-1.983a10.864 10.864 0 0 0-5.948 0l.562 1.92A8.884 8.884 0 0 1 13 4Z"
-    />
-  </svg>`;
-
-// node_modules/@spectrum-web-components/icons-workflow/src/elements/IconQuickSelect.js
-var IconQuickSelect = class extends IconBase {
-  render() {
-    return setCustomTemplateLiteralTag(x), this.spectrumVersion === 1 ? QuickSelectIcon({ hidden: !this.label, title: this.label }) : DefaultIcon({ hidden: !this.label, title: this.label });
-  }
-};
-
-// node_modules/@spectrum-web-components/icons-workflow/icons/sp-icon-quick-select.js
-init_define_element();
-defineElement("sp-icon-quick-select", IconQuickSelect);
-
-// src/custom-elements/acom/acom-action-scroller.js
-init_lit();
-init_style_map2();
-
-// src/custom-elements/acom/acom-action-scroller.css.js
-init_lit();
-var acomActionScrollerStyleSheet = i`
-  :host {
-    display: block;
-    box-sizing: border-box;
-  }
-
-  :host([hidden]) {
-    display: none !important;
-  }
-
-  .scroller {
-    position: relative;
-    display: grid;
-    gap: var(--spectrum-global-dimension-size-300);
-  }
-
-  .actions {
-    display: grid;
-    gap: var(--spectrum-global-dimension-size-300);
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(0, var(--acom-action-tile-width, 220px));
-    overflow-x: auto;
-    padding-bottom: var(--spectrum-global-dimension-size-100);
-    scroll-snap-type: x mandatory;
-  }
-
-  .actions ::slotted(*) {
-    scroll-snap-align: start;
-  }
-
-  .nav {
-    display: flex;
-    justify-content: flex-end;
-    gap: var(--spectrum-global-dimension-size-200);
-  }
-`;
-
-// src/custom-elements/acom/acom-action-scroller.js
-var AcomActionScroller = class extends i4 {
-  static styles = [acomActionScrollerStyleSheet];
-  static properties = {
-    tileWidth: { type: Number, attribute: "tile-width" },
-    showNav: {
-      type: Boolean,
-      attribute: "show-nav",
-      converter: booleanConverter
-    }
-  };
-  #actionsContainer;
-  #slotObservers;
-  constructor() {
-    super();
-    this.tileWidth = 220;
-    this.showNav = true;
-    ensureId(this, "acom-action-scroller");
-    this.#actionsContainer = null;
-    this.#slotObservers = [];
-  }
-  firstUpdated() {
-    this.#actionsContainer = this.shadowRoot?.querySelector(".actions") ?? null;
-    this.#slotObservers = observeSlots(this, [""], () => this.#updateJsonLd());
-    this.#updateJsonLd();
-  }
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    disconnectSlotObservers(this.#slotObservers);
-    setJsonLd(this, null, "acom-action-scroller");
-  }
-  render() {
-    const styles12 = {
-      "--acom-action-tile-width": `${this.tileWidth}px`
-    };
-    return x`
-      <div
-        class="scroller"
-        id="${this.id}-scroller"
-        style=${o10(styles12)}
-        role="region"
-        aria-label=${this.getAttribute("aria-label") || "Quick actions"}
-      >
-        <div class="actions" id="${this.id}-actions">
-          <slot></slot>
-        </div>
-        ${this.showNav ? this.#renderNav() : E}
-      </div>
-    `;
-  }
-  #renderNav() {
-    return x`
-      <div class="nav" id="${this.id}-nav">
-        <sp-action-button
-          aria-label="Scroll actions left"
-          @click=${() => this.#scroll(-this.#scrollDistance())}
-        >
-          <sp-icon-arrow-left slot="icon"></sp-icon-arrow-left>
-          Previous
-        </sp-action-button>
-        <sp-action-button
-          aria-label="Scroll actions right"
-          @click=${() => this.#scroll(this.#scrollDistance())}
-        >
-          <sp-icon-arrow-right slot="icon"></sp-icon-arrow-right>
-          Next
-        </sp-action-button>
-      </div>
-    `;
-  }
-  #scrollDistance() {
-    return this.tileWidth * 1.5;
-  }
-  #scroll(distance) {
-    if (!this.#actionsContainer) {
-      return;
-    }
-    this.#actionsContainer.scrollBy({
-      left: distance,
-      behavior: "smooth"
-    });
-  }
-  #updateJsonLd() {
-    const items = Array.from(this.querySelectorAll("acom-action-tile")).map((tile, index) => ({
-      position: index + 1,
-      name: collectSlotText(tile, "heading") || `Action ${index + 1}`,
-      description: collectSlotText(tile, "body") || "",
-      url: tile.getAttribute("href") || ""
-    }));
-    emitItemListJsonLd(this, "acom-action-scroller", items);
-  }
-};
-customElements.define("acom-action-scroller", AcomActionScroller);
-
-// src/custom-elements/acom/acom-action-scroller.author.js
-AcomActionScroller.ee = {
-  getElementIcon(html) {
-    return html`<sp-icon-quick-select slot="icon"></sp-icon-quick-select>`;
-  },
-  getSchema() {
-    return {
-      schemaVersion: 1,
-      element: {
-        label: "ACOM Action Scroller",
-        description: "Horizontal scroller for quick action tiles with optional navigation controls.",
-        category: "structure"
-      },
-      attributes: {
-        "tile-width": {
-          type: "number",
-          default: 220,
-          label: "Tile Width",
-          description: "Base width for each action tile (px).",
-          min: 160,
-          max: 400
-        },
-        "show-nav": {
-          type: "boolean",
-          default: true,
-          label: "Show navigation buttons",
-          description: "Toggle next/previous buttons."
-        }
-      },
-      slots: {
-        order: ["default"],
-        configs: {
-          default: {
-            label: "Action Tiles",
-            description: "Add acom-action-tile elements.",
-            minLength: 1,
-            maxLength: null
-          }
-        }
-      }
-    };
-  },
-  create() {
-    const template = document.createElement("template");
-    template.innerHTML = `
-      <acom-action-scroller tile-width="240" show-nav>
-        <acom-action-tile background-color="linear-gradient(135deg, #ffd654 0%, #ff8c5a 100%)">
-          <span slot="heading">Action 1</span>
-        </acom-action-tile>
-        <acom-action-tile background-color="linear-gradient(135deg, #ffd654 0%, #ff8c5a 100%)">
-          <span slot="heading">Action 2</span>
-        </acom-action-tile>
-        <acom-action-tile background-color="linear-gradient(135deg, #ffd654 0%, #ff8c5a 100%)">
-          <span slot="heading">Action 3</span>
-        </acom-action-tile>
-      </acom-action-scroller>
-    `;
-    return template.content.firstElementChild;
-  },
-  sanitize(element) {
-    if (!element) return;
-    Array.from(element.children).forEach((child) => {
-      if (child.tagName !== "ACOM-ACTION-TILE") {
-        child.remove();
       }
     });
   },
@@ -74960,9 +71837,9 @@ var AcomFaqItem = class extends AccordionItemElement {
 customElements.define("acom-faq-item", AcomFaqItem);
 
 // src/custom-elements/acom/acom-faq-item.author.js
-var TEXT_STYLES8 = ["bold", "italic", "underline", "strikethrough"];
-var ALIGN_FORMATS6 = ["align-left", "align-center", "align-right"];
-var LIST_FORMATS3 = ["unordered-list", "ordered-list"];
+var TEXT_STYLES4 = ["bold", "italic", "underline", "strikethrough"];
+var ALIGN_FORMATS3 = ["align-left", "align-center", "align-right"];
+var LIST_FORMATS = ["unordered-list", "ordered-list"];
 AcomFaqItem.ee = {
   getElementIcon(html) {
     return html`<sp-icon-question slot="icon"></sp-icon-question>`;
@@ -75001,8 +71878,8 @@ AcomFaqItem.ee = {
             description: "Rich text content answering the question.",
             inlineEditable: true,
             multiline: true,
-            allowedStyles: [...TEXT_STYLES8],
-            allowedFormats: [...ALIGN_FORMATS6, ...LIST_FORMATS3],
+            allowedStyles: [...TEXT_STYLES4],
+            allowedFormats: [...ALIGN_FORMATS3, ...LIST_FORMATS],
             allowLinks: true,
             allowPaste: true
           }
@@ -75188,535 +72065,6 @@ AcomFaq.ee = {
       }
       if (child.tagName === "ACOM-FAQ-ITEM" && slot) {
         child.removeAttribute("slot");
-      }
-    });
-  },
-  toJson(element, serializeNode) {
-    const schema2 = this.getSchema(element);
-    return makeToJson(element, schema2, serializeNode);
-  }
-};
-
-// node_modules/@spectrum-web-components/icons-workflow/src/elements/IconMarketingActivities.js
-init_src();
-
-// node_modules/@spectrum-web-components/icons-workflow/src/icons/MarketingActivities.js
-var MarketingActivitiesIcon = ({ width: e36 = 24, height: r25 = 24, hidden: t34 = false, title: a23 = "Marketing Activities" } = {}) => tag`<svg
-    xmlns="http://www.w3.org/2000/svg"
-    height="${r25}"
-    viewBox="0 0 36 36"
-    width="${e36}"
-    aria-hidden=${t34 ? "true" : "false"}
-    role="img"
-    fill="currentColor"
-    aria-label="${a23}"
-  >
-    <path
-      d="M25.865 6.9a4.853 4.853 0 0 1-1.508 1.315l3.91 4.729a4.859 4.859 0 0 1 1.559-1.253Zm-16.85 8.869 4.268 3.386a4.843 4.843 0 0 1 1.312-1.512l-4.31-3.419a4.852 4.852 0 0 1-1.27 1.545Zm12.71 3.4a4.79 4.79 0 0 1 .584 1.928l5.623-2.473a4.809 4.809 0 0 1-.706-1.875ZM7.042 28.255A4.851 4.851 0 0 1 8.3 29.809l5.88-4.791a4.864 4.864 0 0 1-1.152-1.641ZM10.136 9.5a4.8 4.8 0 0 1 .657 1.938L18.2 6.98a4.8 4.8 0 0 1-.89-1.8Z"
-    />
-    <circle cx="4" cy="32" r="3.85" />
-    <circle cx="17.5" cy="21.5" r="3.85" />
-    <circle cx="22" cy="4" r="3.85" />
-    <circle cx="6" cy="12" r="3.85" />
-    <circle cx="32" cy="16" r="3.85" />
-  </svg>`;
-
-// node_modules/@spectrum-web-components/icons-workflow/src/elements/IconMarketingActivities.js
-var IconMarketingActivities = class extends IconBase {
-  render() {
-    return setCustomTemplateLiteralTag(x), this.spectrumVersion === 1 ? MarketingActivitiesIcon({ hidden: !this.label, title: this.label }) : DefaultIcon({ hidden: !this.label, title: this.label });
-  }
-};
-
-// node_modules/@spectrum-web-components/icons-workflow/icons/sp-icon-marketing-activities.js
-init_define_element();
-defineElement("sp-icon-marketing-activities", IconMarketingActivities);
-
-// src/custom-elements/acom/acom-promo-bar.js
-init_lit();
-
-// src/custom-elements/acom/acom-promo-bar.css.js
-init_lit();
-var acomPromoBarStyleSheet = i`
-  :host {
-    display: block;
-    box-sizing: border-box;
-    position: static;
-    background: var(--acom-promo-background, var(--spectrum-global-color-gray-900));
-  }
-
-  :host([sticky]) {
-    position: sticky;
-    bottom: 0;
-    z-index: 100;
-  }
-
-  sp-theme {
-    display: block;
-  }
-
-  div {
-    display: flex;
-    align-items: center;
-    gap: var(--spectrum-global-dimension-size-400);
-    padding: var(--spectrum-global-dimension-size-500);
-    color: var(--spectrum-body-color);
-  }
-
-  slot[name="icon"] {
-    display: flex;
-    align-items: center;
-    flex-shrink: 0;
-  }
-
-  slot[name="icon"]::slotted(*) {
-    display: block;
-  }
-
-  slot:not([name]) {
-    display: inline;
-  }
-
-  slot:not([name])::slotted(*) {
-    margin: 0;
-    font-size: var(--spectrum-global-dimension-font-size-400, 1.5rem);
-    font-weight: 700;
-    line-height: 1.3;
-    display: inline;
-  }
-
-  slot[name="body"] {
-    display: inline;
-  }
-
-  slot[name="body"]::slotted(*),
-  slot[name="body"]::slotted(p) {
-    margin: 0;
-    font-size: var(--spectrum-global-dimension-font-size-200, 1rem);
-    line-height: 1.5;
-    display: inline;
-  }
-
-  slot[name="actions"] {
-    display: flex;
-    gap: var(--spectrum-global-dimension-size-300);
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    flex-shrink: 0;
-    margin-left: auto;
-  }
-
-  slot[name="actions"]::slotted(sp-button),
-  slot[name="actions"]::slotted(checkout-button) {
-    font-size: var(--spectrum-global-dimension-font-size-300, 1.25rem);
-  }
-`;
-
-// src/custom-elements/acom/acom-promo-bar.js
-var AcomPromoBar = class extends i4 {
-  static styles = [acomPromoBarStyleSheet];
-  static properties = {
-    backgroundColor: { type: String, attribute: "background-color" },
-    theme: { type: String, reflect: true },
-    sticky: {
-      type: Boolean,
-      reflect: true,
-      converter: booleanConverter
-    }
-  };
-  #slotObservers;
-  #sectionLabelId;
-  constructor() {
-    super();
-    this.backgroundColor = "";
-    this.theme = "";
-    this.sticky = false;
-    this.#slotObservers = [];
-    this.#sectionLabelId = null;
-    ensureId(this, "acom-promo-bar");
-  }
-  connectedCallback() {
-    super.connectedCallback();
-    this.#applyBackgroundColor();
-  }
-  #applyBackgroundColor() {
-    const backgroundValue = normalizeBackgroundValue(this.backgroundColor, "");
-    if (backgroundValue) {
-      this.style.setProperty("--acom-promo-background", backgroundValue);
-    } else {
-      this.style.removeProperty("--acom-promo-background");
-    }
-  }
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    disconnectSlotObservers(this.#slotObservers);
-  }
-  firstUpdated() {
-    this.#slotObservers = observeSlots(
-      this,
-      ["icon", "", "body", "actions"],
-      () => this.#updateAccessibilityAndSchema()
-    );
-    this.#updateAccessibilityAndSchema();
-  }
-  updated(changed) {
-    if (changed.has("theme")) {
-      this.#normalizeTheme();
-    }
-    if (changed.has("backgroundColor")) {
-      this.#applyBackgroundColor();
-    }
-    this.#updateAccessibilityAndSchema();
-  }
-  render() {
-    const promoContent = x`
-      <div
-        id="${this.id}-promo"
-        aria-labelledby=${this.#sectionLabelId || E}
-      >
-        <slot name="icon"></slot>
-        <slot></slot>
-        <slot name="body"></slot>
-        <slot name="actions"></slot>
-      </div>
-    `;
-    if (this.theme === "dark" || this.theme === "light") {
-      return x`
-        <sp-theme color="${this.theme}" scale="medium" system="spectrum-two">
-          ${promoContent}
-        </sp-theme>
-      `;
-    }
-    return promoContent;
-  }
-  #normalizeTheme() {
-    this.theme = normalizeTheme(this.theme);
-  }
-  #updateAccessibilityAndSchema() {
-    const container = this.shadowRoot?.getElementById(`${this.id}-promo`);
-    if (!container) {
-      return;
-    }
-    container.setAttribute("role", "region");
-    this.#sectionLabelId = updateRegionAccessibility({
-      host: this,
-      container,
-      headingSlot: null,
-      fallbackLabel: "Promotion",
-      idPrefix: `${this.id}-heading`
-    });
-  }
-};
-customElements.define("acom-promo-bar", AcomPromoBar);
-
-// src/custom-elements/acom/acom-promo-bar.author.js
-var PROMO_BAR_SLOTS = /* @__PURE__ */ new Set(["icon", "body", "actions", ""]);
-var TEXT_STYLES9 = ["bold", "italic", "underline", "strikethrough"];
-var ALIGN_FORMATS7 = ["align-left", "align-center", "align-right"];
-var LIST_FORMATS4 = ["unordered-list", "ordered-list"];
-AcomPromoBar.ee = {
-  getElementIcon(html) {
-    return html`<sp-icon-marketing-activities slot="icon"></sp-icon-marketing-activities>`;
-  },
-  getSchema() {
-    return {
-      schemaVersion: 1,
-      element: {
-        label: "ACOM Promo Bar",
-        description: "Persistent promotional banner with icon, copy, and actions.",
-        category: "messaging"
-      },
-      attributes: {
-        sticky: {
-          type: "boolean",
-          default: false,
-          label: "Stick to bottom",
-          description: "Affix the promo bar to the bottom of the viewport."
-        },
-        "background-color": makeSWCColorSchema({
-          defaultValue: "linear-gradient(135deg, #ff70a6 0%, #bd70ff 100%)",
-          label: "Background Fill",
-          description: "Solid color or gradient applied behind the promo.",
-          attr: "background-color",
-          allowGradient: true
-        }),
-        theme: {
-          type: "enum",
-          options: ["", "light", "dark"],
-          default: "",
-          label: "Theme",
-          description: "Optional override to force light or dark typography. Leave empty to inherit from parent."
-        }
-      },
-      slots: {
-        order: ["icon", "body", "actions"],
-        configs: {
-          icon: {
-            label: "Icon",
-            description: "Product icon using merch-mnemonic.",
-            minLength: 0,
-            maxLength: 1
-          },
-          body: {
-            label: "Body",
-            description: "Supporting text and links.",
-            minLength: 0,
-            maxLength: null,
-            inlineEditable: true,
-            multiline: true,
-            allowedStyles: [...TEXT_STYLES9],
-            allowedFormats: [...ALIGN_FORMATS7, ...LIST_FORMATS4],
-            allowLinks: true,
-            placeholder: "Add supporting copy"
-          },
-          actions: {
-            label: "Actions",
-            description: "Buttons such as Free trial or Buy now.",
-            minLength: 0,
-            maxLength: 3
-          }
-        }
-      }
-    };
-  },
-  create() {
-    const template = document.createElement("template");
-    template.innerHTML = `
-      <acom-promo-bar background-color="linear-gradient(135deg, #ff70a6 0%, #bd70ff 100%)" theme="dark">
-        <merch-mnemonic slot="icon" name="photoshop" size="l"></merch-mnemonic>
-        <span>Explore product plans.</span>
-      </acom-promo-bar>
-    `;
-    return template.content.firstElementChild;
-  },
-  sanitize(element) {
-    if (!element) return;
-    Array.from(element.children).forEach((child) => {
-      const slot = child.getAttribute("slot") || "";
-      if (!PROMO_BAR_SLOTS.has(slot)) {
-        child.removeAttribute("slot");
-      }
-    });
-  },
-  toJson(element, serializeNode) {
-    const schema2 = this.getSchema(element);
-    return makeToJson(element, schema2, serializeNode);
-  }
-};
-
-// node_modules/@spectrum-web-components/icons-workflow/src/elements/IconFolderBreadcrumb.js
-init_src();
-
-// node_modules/@spectrum-web-components/icons-workflow/src/icons-s2/FolderBreadcrumb.js
-var FolderBreadcrumbIcon = ({ width: l16 = 24, height: r25 = 24, hidden: e36 = false, title: t34 = "Folder Breadcrumb" } = {}) => tag`<svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="${l16}"
-    height="${r25}"
-    viewBox="0 0 20 20"
-    aria-hidden=${e36 ? "true" : "false"}
-    role="img"
-    fill="currentColor"
-    aria-label="${t34}"
-  >
-    <path
-      d="m16.75,5h-5.96387c-.21777,0-.42383-.09375-.56641-.25879l-1.7041-1.96387c-.42676-.49414-1.0459-.77734-1.7002-.77734h-3.56543c-1.24023,0-2.25,1.00977-2.25,2.25v10.5c0,1.24023,1.00977,2.25,2.25,2.25h13.5c1.24023,0,2.25-1.00977,2.25-2.25v-7.5c0-1.24023-1.00977-2.25-2.25-2.25ZM3.25,3.5h3.56543c.21777,0,.42383.09375.56641.25879l1.07703,1.24121H2.5v-.75c0-.41309.33691-.75.75-.75Zm14.25,11.25c0,.41309-.33691.75-.75.75H3.25c-.41309,0-.75-.33691-.75-.75V6.5h14.25c.41309,0,.75.33691.75.75v7.5Z"
-      fill="currentColor"
-    />
-    <path
-      d="m10,13.65039c-.19238,0-.38379-.07324-.53027-.21973l-3-3c-.29297-.29297-.29297-.76758,0-1.06055s.76758-.29297,1.06055,0l2.46973,2.46973,2.46973-2.46973c.29297-.29297.76758-.29297,1.06055,0s.29297.76758,0,1.06055l-3,3c-.14648.14648-.33789.21973-.53027.21973Z"
-      fill="currentColor"
-    />
-  </svg>`;
-
-// node_modules/@spectrum-web-components/icons-workflow/src/elements/IconFolderBreadcrumb.js
-var IconFolderBreadcrumb = class extends IconBase {
-  render() {
-    return setCustomTemplateLiteralTag(x), this.spectrumVersion === 2 ? FolderBreadcrumbIcon({ hidden: !this.label, title: this.label }) : DefaultIcon({ hidden: !this.label, title: this.label });
-  }
-};
-
-// node_modules/@spectrum-web-components/icons-workflow/icons/sp-icon-folder-breadcrumb.js
-init_define_element();
-defineElement("sp-icon-folder-breadcrumb", IconFolderBreadcrumb);
-
-// src/custom-elements/acom/acom-breadcrumbs.js
-init_lit();
-
-// src/custom-elements/acom/acom-breadcrumbs.css.js
-init_lit();
-var acomBreadcrumbsStyleSheet = i`
-  :host {
-    display: block;
-  }
-
-  nav {
-    display: block;
-  }
-
-  ::slotted(sp-breadcrumb-item) {
-    max-width: 100%;
-  }
-`;
-
-// src/custom-elements/acom/acom-breadcrumbs.js
-var AcomBreadcrumbs = class extends i4 {
-  static styles = [acomBreadcrumbsStyleSheet];
-  static properties = {
-    label: { type: String, reflect: true },
-    items: { state: true }
-  };
-  #slotListener;
-  constructor() {
-    super();
-    this.label = "Breadcrumb";
-    this.items = [];
-    this.#slotListener = null;
-    ensureId(this, "acom-breadcrumbs");
-  }
-  firstUpdated() {
-    const slot = this.shadowRoot?.querySelector("slot");
-    if (slot) {
-      const listener = () => this.#handleSlotChange();
-      slot.addEventListener("slotchange", listener);
-      this.#slotListener = { slot, listener };
-    }
-    this.#handleSlotChange();
-  }
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    if (this.#slotListener) {
-      const { slot, listener } = this.#slotListener;
-      slot.removeEventListener("slotchange", listener);
-      this.#slotListener = null;
-    }
-    setJsonLd(this, null, "acom-breadcrumbs");
-  }
-  updated(changed) {
-    if (changed.has("label")) {
-      this.requestUpdate();
-    }
-  }
-  render() {
-    const ariaLabel = (this.label || "").trim() || "Breadcrumb";
-    const hasItems = Array.isArray(this.items) && this.items.length > 0;
-    if (!hasItems) {
-      return x``;
-    }
-    return x`
-      <nav aria-label=${ariaLabel}>
-        <sp-breadcrumbs>
-          <slot></slot>
-        </sp-breadcrumbs>
-      </nav>
-    `;
-  }
-  #handleSlotChange() {
-    const slot = this.shadowRoot?.querySelector("slot");
-    if (!slot) {
-      this.items = [];
-      setJsonLd(this, null, "acom-breadcrumbs");
-      return;
-    }
-    const assigned = slot.assignedElements({ flatten: true });
-    this.#ensureRootSlot(assigned);
-    this.items = assigned;
-    this.#updateJsonLd();
-  }
-  #ensureRootSlot(elements) {
-    elements.forEach((el, index) => {
-      if (!(el instanceof HTMLElement)) return;
-      if (index === 0) {
-        el.setAttribute("slot", "root");
-      } else if (el.getAttribute("slot") === "root") {
-        el.removeAttribute("slot");
-      }
-    });
-  }
-  #updateJsonLd() {
-    const elements = Array.isArray(this.items) ? this.items : [];
-    const itemListElement = elements.map((el, index) => {
-      const name = collectSlotText(el, "") || (el.textContent || "").replace(/\s+/g, " ").trim();
-      const href = el.getAttribute?.("href") || el.href || "";
-      if (!name) return null;
-      const listItem2 = {
-        "@type": "ListItem",
-        position: index + 1,
-        name
-      };
-      if (href) listItem2.item = href;
-      return listItem2;
-    }).filter(Boolean);
-    if (!itemListElement.length) {
-      setJsonLd(this, null, "acom-breadcrumbs");
-      return;
-    }
-    const json = {
-      "@context": "https://schema.org",
-      "@type": "BreadcrumbList",
-      itemListElement
-    };
-    setJsonLd(this, json, "acom-breadcrumbs");
-  }
-};
-customElements.define("acom-breadcrumbs", AcomBreadcrumbs);
-
-// src/custom-elements/acom/acom-breadcrumbs.author.js
-AcomBreadcrumbs.ee = {
-  getElementIcon(html) {
-    return html`<sp-icon-folder-breadcrumb slot="icon"></sp-icon-folder-breadcrumb>`;
-  },
-  getSchema() {
-    return {
-      schemaVersion: 1,
-      element: {
-        label: "ACOM Breadcrumbs",
-        description: "Navigation hierarchy with schema.org BreadcrumbList output.",
-        category: "structure"
-      },
-      attributes: {
-        label: {
-          type: "text",
-          default: "Breadcrumb",
-          label: "ARIA Label",
-          description: "Accessible label announced for the breadcrumb navigation.",
-          maxLength: 80
-        }
-      },
-      slots: {
-        order: ["default"],
-        configs: {
-          default: {
-            label: "Breadcrumb Items",
-            description: "Add sp-breadcrumb-item elements with text and href attributes to build the hierarchy.",
-            minLength: 1,
-            maxLength: 10
-          }
-        }
-      }
-    };
-  },
-  create() {
-    const template = document.createElement("template");
-    template.innerHTML = `
-      <acom-breadcrumbs label="Breadcrumb">
-        <sp-breadcrumb-item slot="root" href="https://www.adobe.com/">Home</sp-breadcrumb-item>
-        <sp-breadcrumb-item href="https://www.adobe.com/products/photoshop.html">Adobe Photoshop</sp-breadcrumb-item>
-      </acom-breadcrumbs>
-    `;
-    return template.content.firstElementChild;
-  },
-  sanitize(element) {
-    if (!element) return;
-    const label = (element.getAttribute("label") || "").trim();
-    if (!label) {
-      element.setAttribute("label", "Breadcrumb");
-    }
-    const crumbs = Array.from(element.querySelectorAll("sp-breadcrumb-item"));
-    crumbs.forEach((crumb, index) => {
-      if (index === 0) {
-        crumb.setAttribute("slot", "root");
-      } else if (crumb.getAttribute("slot") === "root") {
-        crumb.removeAttribute("slot");
       }
     });
   },
